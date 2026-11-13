@@ -22,14 +22,16 @@ jobs:
           node-version: 22
       - name: Pull latest matches
         run: node scripts/fetch.mjs
-      - name: Commit new matches
+      - name: Download club crests
+        run: node scripts/fetch-crests.mjs
+      - name: Commit new data
         run: |
-          if git diff --quiet -- data/db.js; then
+          git config user.name "eatmob-bot"
+          git config user.email "eatmob-bot@users.noreply.github.com"
+          git add data/db.js crests/
+          if git diff --cached --quiet; then
             echo "No new data."
           else
-            git config user.name "eatmob-bot"
-            git config user.email "eatmob-bot@users.noreply.github.com"
-            git add data/db.js
-            git commit -m "Update match data"
+            git commit -m "Update match data and crests"
             git push
           fi
