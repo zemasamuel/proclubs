@@ -3,6 +3,8 @@
   'use strict';
 
   var N = window.EatmobNormalize;
+  var TIME_ZONE = 'America/Chicago'; // every date and time on the site is shown in this zone (Central: CST in winter, CDT in summer)
+  var CREST_BASE = 'https://eafc24.content.easports.com/fifa/fltOnlineAssets/24B23FDE-7835-41C2-87A2-F453DFDB2E82/2024/fcweb/crests/256x256/l';
   var DAY_STARTS_AT_HOUR = 5;      // a game that ends at 12:17 AM belongs to the night before
   var MATCH_SECONDS = 5400;        // EA reports game-clock seconds; 5400 = 90 minutes
   var LS_KEY = 'eatmob-import-v1';
@@ -13,7 +15,8 @@
 
   var view = document.getElementById('view');
   var memoryImport = null;
-  var ui = { calOpen: false, calMonth: null, tab: 'facts', squadMode: 'tracked', sortK: 'rating', sortDir: -1, importMsg: null };
+  var ui = { calOpen: false, calMonth: null, tab: 'facts', squadMode: 'tracked', sortK: 'rating', sortDir: -1, importMsg: null, cmp: { tpl: 'fwd', sel: null } };
+  var MAX_COMPARE = 5;
   var db, idx;
 
   /* ---------- helpers ---------- */
@@ -25,17 +28,22 @@
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function slug(s) { return String(s).replace(/[^A-Za-z0-9]/g, ''); }
   function keyOfDate(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
-  function dayKeyOf(ts) { return keyOfDate(new Date(ts * 1000 - DAY_STARTS_AT_HOUR * 3600000)); }
   function dateOfKey(k) { var p = k.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
   function addDays(k, n) { var d = dateOfKey(k); d.setDate(d.getDate() + n); return keyOfDate(d); }
   function validKey(k) { return /^\d{4}-\d{2}-\d{2}$/.test(k) && keyOfDate(dateOfKey(k)) === k; }
+  // Date and hour of a unix timestamp in TIME_ZONE, whatever time zone the visitor's device is set to.
+  var zoneFmt = new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' });
+  function zoneParts(ts) { var o = {}; zoneFmt.formatToParts(new Date(ts * 1000)).forEach(function (p) { o[p.type] = p.value; }); o.hour = (+o.hour) % 24; return o; }
+  function zoneKey(ts) { var p = zoneParts(ts); return p.year + '-' + p.month + '-' + p.day; }
+  function zoneHour(ts) { return zoneParts(ts).hour; }
+  function dayKeyOf(ts) { var p = zoneParts(ts), k = p.year + '-' + p.month + '-' + p.day; return p.hour < DAY_STARTS_AT_HOUR ? addDays(k, -1) : k; }
   function todayKey() { return dayKeyOf(Date.now() / 1000); }
-  function fmtTime(ts) { return new Date(ts * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+  function fmtTime(ts) { return new Date(ts * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TIME_ZONE }); }
   function fmtDayLong(k) { var d = dateOfKey(k); return WD_LONG[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); }
   function fmtDayShort(k) { var d = dateOfKey(k); return MONTHS[d.getMonth()].slice(0, 3) + ' ' + d.getDate(); }
   var WD_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  function fmtStamp(iso) { var d = new Date(iso); return isNaN(d) ? 'unknown' : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); }
-  function afterMidnight(m) { return keyOfDate(new Date(m.ts * 1000)) !== m.day; }
+  function fmtStamp(iso) { var d = new Date(iso); return isNaN(d) ? 'unknown' : d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: TIME_ZONE }) + ' CT'; }
+  function afterMidnight(m) { return zoneKey(m.ts) !== m.day; }
 
   function f1(v) { return v === null || v === undefined || !isFinite(v) ? '–' : v.toFixed(1); }
   function f2(v) { return v === null || v === undefined || !isFinite(v) ? '–' : v.toFixed(2); }
@@ -49,6 +57,14 @@
   function resChip(r) { return '<span class="res ' + r + '" title="' + ({ W: 'Win', D: 'Draw', L: 'Loss' }[r]) + '">' + r + '</span>'; }
   function times(n) { return n > 1 ? ' ×' + n : ''; }
   function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+  function mean(a) { return a.length ? a.reduce(function (s, v) { return s + v; }, 0) / a.length : null; }
+  function stdev(a) { if (a.length < 2) return null; var m = mean(a); return Math.sqrt(mean(a.map(function (v) { return (v - m) * (v - m); }))); }
+  // A club crest. EA hands out the image id with every match (crestAssetId); if the image cannot load, the club's initials show instead.
+  function crest(side, size) {
+    var id = side && /^\d+$/.test(side.crest || '') ? side.crest : '';
+    return '<span class="cr s' + size + (id ? '' : ' bad') + '" aria-hidden="true">' + (id ? '<img src="' + CREST_BASE + id + '.png" alt="" loading="lazy" decoding="async">' : '') +
+      '<span class="fb">' + initials(side && side.name || '?') + '</span></span>';
+  }
 
   /* ---------- data ---------- */
   function readImport() {
@@ -74,7 +90,8 @@
 
   function newAgg(id, name) {
     return { id: id, name: name || '', apps: 0, goals: 0, assists: 0, shots: 0, passesMade: 0, passAttempts: 0, tacklesMade: 0, tackleAttempts: 0,
-             saves: 0, redCards: 0, motm: 0, cleanSheets: 0, goalsConceded: 0, seconds: 0, ratingSum: 0, rated: 0, W: 0, D: 0, L: 0, pos: {}, log: [] };
+             saves: 0, redCards: 0, motm: 0, cleanSheets: 0, goalsConceded: 0, seconds: 0, ratingSum: 0, rated: 0, W: 0, D: 0, L: 0, pos: {}, log: [],
+             teamGoals: 0, tries: 0 };
   }
   function avgRating(a) { return a.rated ? a.ratingSum / a.rated : null; }
   function mainPos(a) {
@@ -104,6 +121,7 @@
         if (p.cleanSheet) a.cleanSheets++;
         if (p.rating > 0) { a.ratingSum += p.rating; a.rated++; }
         a[m.result]++;
+        a.teamGoals += m.us.goals; a.tries += tries(p);
         a.pos[p.pos] = (a.pos[p.pos] || 0) + 1;
         a.log.push({ m: m, p: p });
       });
@@ -116,7 +134,9 @@
     var list = Object.keys(players).map(function (id) { return players[id]; });
     var bySlug = {};
     list.forEach(function (a) { bySlug[slug(a.id)] = a; });
-    return { matches: matches, byDay: byDay, days: Object.keys(byDay).sort(), byId: byId, players: list, bySlug: bySlug };
+    var usSide = null;
+    matches.forEach(function (m) { if (m.us.crest) usSide = m.us; });
+    return { matches: matches, byDay: byDay, days: Object.keys(byDay).sort(), byId: byId, players: list, bySlug: bySlug, us: { name: db.club.name, crest: usSide ? usSide.crest : '' } };
   }
 
   function tally(ms) {
@@ -135,9 +155,9 @@
     return '<a class="mrow" href="' + matchHref(m) + '">' +
       '<span class="t">' + (withDate ? esc(fmtDayShort(m.day)) + '<br>' : '') + esc(fmtTime(m.ts)) + '</span>' +
       resChip(m.result) +
-      '<span class="home">' + esc(m.us.name) + '</span>' +
+      '<span class="home"><span class="n">' + esc(m.us.name) + '</span>' + crest(m.us, 24) + '</span>' +
       '<span class="sc">' + m.us.goals + ' – ' + m.them.goals + '</span>' +
-      '<span class="away">' + esc(m.them.name) + (m.dnf ? ' <span class="tag" title="A team quit before full time">DNF</span>' : '') + '</span>' +
+      '<span class="away">' + crest(m.them, 24) + '<span class="n">' + esc(m.them.name) + (m.dnf ? ' <span class="tag" title="A team quit before full time">DNF</span>' : '') + '</span></span>' +
       '<span class="best num" title="' + (best ? 'Top rated: ' + esc(best.name) : '') + '">' + (best ? rt(best.rating) : '') + '</span>' +
       '</a>';
   }
@@ -162,7 +182,7 @@
 
     var h = notices();
     var t = tally(idx.matches);
-    h += '<div class="clubhead"><div class="crest" aria-hidden="true">' + esc((db.club.name || 'E').charAt(0)) + '</div><div><h1>' + esc(db.club.name) + '</h1>' +
+    h += '<div class="clubhead">' + crest(idx.us, 56) + '<div><h1>' + esc(db.club.name) + '</h1>' +
       '<div class="meta">' + idx.matches.length + ' saved ' + (idx.matches.length === 1 ? 'match' : 'matches') + (idx.matches.length ? ' · ' + record(t) : '') +
       (db.club.overall ? ' · Skill rating ' + db.club.overall.skillRating : '') + '</div></div></div>';
 
@@ -203,7 +223,7 @@
         h += '<section class="card"><div class="card-h"><h2>' + TYPE_LABEL[type] + '</h2><span class="muted small">' + record(tt) + '</span></div>' +
           ms.slice().reverse().map(function (m) { return matchRow(m); }).join('') + '</section>';
       });
-      if (list.some(afterMidnight)) h += '<p class="note">Games that finish between midnight and ' + DAY_STARTS_AT_HOUR + ' AM are listed with the night they belong to. Times shown are when each game ended, in your time zone.</p>';
+      if (list.some(afterMidnight)) h += '<p class="note">Games that finish between midnight and ' + DAY_STARTS_AT_HOUR + ' AM are listed with the night they belong to. Times shown are when each game ended, in Central Time.</p>';
       h += daySummary(list);
     }
     view.innerHTML = h;
@@ -267,17 +287,18 @@
     var h = '<div class="row" style="justify-content:space-between"><a class="btn" href="#day-' + m.day + '">‹ ' + esc(fmtDayShort(m.day)) + '</a>' +
       '<div class="row"><a class="btn" ' + (prev ? 'href="' + matchHref(prev) + '"' : 'aria-disabled="true"') + '>‹ Previous</a><a class="btn" ' + (next ? 'href="' + matchHref(next) + '"' : 'aria-disabled="true"') + '>Next ›</a></div></div>';
 
-    h += '<section class="card"><div class="mh"><div class="comp">' + TYPE_LABEL[m.type] + ' · ' + esc(fmtDayLong(keyOfDate(new Date(m.ts * 1000)))) + ' · ended ' + esc(fmtTime(m.ts)) + '</div>' +
-      '<div class="board"><div class="team" style="text-align:right">' + esc(m.us.name) + '</div><div class="score">' + m.us.goals + ' – ' + m.them.goals + '</div><div class="team" style="text-align:left">' + esc(m.them.name) + '</div></div>' +
+    h += '<section class="card"><div class="mh"><div class="comp">' + TYPE_LABEL[m.type] + ' · ' + esc(fmtDayLong(zoneKey(m.ts))) + ' · ended ' + esc(fmtTime(m.ts)) + ' CT</div>' +
+      '<div class="board"><div class="team">' + crest(m.us, 64) + '<span>' + esc(m.us.name) + '</span></div><div class="score">' + m.us.goals + ' – ' + m.them.goals + '</div><div class="team">' + crest(m.them, 64) + '<span>' + esc(m.them.name) + '</span></div></div>' +
       '<div class="row" style="justify-content:center">' + resChip(m.result) + '<span class="muted small">' + (m.dnf ? 'Ended early: a team quit (DNF)' : 'Full time') + '</span></div>' +
       '<div class="scorers"><div>' + scorerList(m.players.us, m.us.goals) + '</div><div>' + scorerList(m.players.them, m.them.goals) + '</div></div></div>';
-    var tabs = [['facts', 'Facts'], ['lineup', 'Lineup'], ['stats', 'Stats'], ['players', 'Player stats']];
+    var tabs = [['facts', 'Facts'], ['lineup', 'Lineup'], ['shots', 'Shots'], ['stats', 'Stats'], ['players', 'Player stats']];
     h += '<div class="tabs" role="tablist">' + tabs.map(function (t) {
       return '<button role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (ui.tab === t[0]) + '">' + t[1] + '</button>';
     }).join('') + '</div></section>';
 
     if (ui.tab === 'facts') h += matchFacts(m);
     else if (ui.tab === 'lineup') h += matchLineup(m);
+    else if (ui.tab === 'shots') h += matchShots(m);
     else if (ui.tab === 'stats') h += matchStats(m);
     else h += matchPlayers(m);
     view.innerHTML = h;
@@ -304,7 +325,7 @@
       '<section class="card"><div class="card-h"><h2>Top rated · ' + esc(m.them.name) + '</h2></div><div class="plist">' + top(m.players.them, false) + '</div></section></div>';
     h += '<section class="card"><div class="card-h"><h2>Match facts</h2></div><div class="card-b"><dl class="kv">' +
       '<dt>Competition</dt><dd>' + TYPE_LABEL[m.type] + '</dd>' +
-      '<dt>Finished</dt><dd>' + esc(new Date(m.ts * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })) + '</dd>' +
+      '<dt>Finished</dt><dd>' + esc(new Date(m.ts * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: TIME_ZONE })) + ' CT</dd>' +
       '<dt>Human players</dt><dd>' + m.stats.us.humans + ' v ' + m.stats.them.humans + '</dd>' +
       '<dt>Team average rating</dt><dd>' + f2(m.stats.us.avgRating) + ' v ' + f2(m.stats.them.avgRating) + '</dd>' +
       '<dt>Result type</dt><dd>' + (m.dnf ? 'Ended early (DNF)' : 'Played to full time') + '</dd>' +
@@ -330,6 +351,37 @@
       pitchHalf(m.players.them, ['GK', 'DEF', 'MID', 'FWD'], m.them.name, false) +
       pitchHalf(m.players.us, ['FWD', 'MID', 'DEF', 'GK'], m.us.name, true) +
       '</div><div class="card-b"><p class="muted small">Only human players are shown, grouped by the position they played. EA does not report AI teammates or exact formation slots. G = goals, A = assists, RC = red card.</p></div></section>';
+  }
+
+  /* Shot chart. EA reports how many shots each player took and how many were goals, but not where on the pitch they were taken
+     (and no xG), so this counts shots per player instead of plotting locations. Shots include goals. */
+  function tries(p) { return Math.max(p.shots, p.goals); } // EA's shot count is occasionally below a player's goals; a goal is always at least one shot
+  function triesOf(players) { return players.reduce(function (s, p) { return s + tries(p); }, 0); }
+  function shotTeam(side, players, us, teamGoals) {
+    var sh = players.filter(function (p) { return tries(p) > 0; })
+      .sort(function (a, b) { return tries(b) - tries(a) || b.goals - a.goals || b.rating - a.rating; });
+    var total = 0, goals = 0;
+    players.forEach(function (p) { total += tries(p); goals += p.goals; });
+    var other = Math.max(0, teamGoals - goals);
+    var h = '<section class="card"><div class="card-h shot-h"><h2>' + crest(side, 24) + '<span>' + esc(side.name) + '</span></h2><span class="muted small">' +
+      total + (total === 1 ? ' shot' : ' shots') + ' · ' + goals + (goals === 1 ? ' goal' : ' goals') + ' · ' + (total ? Math.round(goals / total * 100) + '% conversion' : 'no shots') + '</span></div>';
+    if (!sh.length) return h + '<div class="card-b muted">No shots recorded for human players.</div></section>';
+    h += '<div class="shots">' + sh.map(function (p) {
+      var t = tries(p), miss = t - p.goals, dots = '', i;
+      for (i = 0; i < p.goals; i++) dots += '<i class="sd goal"></i>';
+      for (i = 0; i < miss; i++) dots += '<i class="sd"></i>';
+      var nm = us ? '<a href="' + playerHref(p.id) + '">' + esc(p.name) + '</a>' : esc(p.name);
+      return '<div class="srow"><span class="nm">' + nm + '<small>' + POS_LABEL[p.pos] + '</small></span><span class="dots2" role="img" aria-label="' + t + ' shots, ' + p.goals + ' goals">' + dots + '</span>' +
+        '<span class="sv"><b>' + t + '</b> ' + (t === 1 ? 'shot' : 'shots') + (p.goals ? ' · <b>' + p.goals + '</b> G' : '') + '</span></div>';
+    }).join('') + '</div>';
+    if (other > 0) h += '<div class="card-b small muted">' + other + (other === 1 ? ' more goal' : ' more goals') + ' not credited to a human player (AI teammate, own goal, or awarded when a team quits).</div>';
+    return h + '</section>';
+  }
+  function matchShots(m) {
+    return '<section class="card"><div class="card-b">' + statBar('Shots', triesOf(m.players.us), triesOf(m.players.them)) +
+      '<div class="legend small muted"><span><i class="sd goal"></i> goal</span><span><i class="sd"></i> shot that did not score</span></div>' +
+      '<p class="muted small" style="margin-top:8px">EA reports how many shots each player took, but not where on the pitch they were taken, so this chart counts shots instead of plotting them. A goal always counts as a shot, even when EA\'s own shot count is lower. Human players only.</p></div></section>' +
+      shotTeam(m.us, m.players.us, true, m.us.goals) + shotTeam(m.them, m.players.them, false, m.them.goals);
   }
 
   function statBar(label, a, b, fmt) {
@@ -457,7 +509,7 @@
 
   function viewPlayer(a) {
     var mem = db.members[a.name] || null, pos = mainPos(a), avg = avgRating(a);
-    var h = '<div class="row"><a class="btn" href="#squad">‹ Squad</a></div>';
+    var h = '<div class="row" style="justify-content:space-between"><a class="btn" href="#squad">‹ Squad</a>' + (a.apps ? '<a class="btn" href="#compare-' + slug(a.id) + '">Compare players ›</a>' : '') + '</div>';
     h += '<section class="card"><div class="card-b phead"><div class="avatar">' + initials(a.name) + '</div><div><h1>' + esc(a.name) + '</h1><div class="muted">' +
       [mem && mem.proName ? 'Pro: ' + esc(mem.proName) : '', pos ? POS_LABEL[pos] : '', mem && mem.heightCm ? mem.heightCm + ' cm' : '', esc(db.club.name)].filter(Boolean).join(' · ') + '</div></div>' +
       (mem && mem.overall ? '<div class="ovr"><b>' + mem.overall + '</b><span class="muted small">Overall</span></div>' : '') + '</div>';
@@ -487,7 +539,7 @@
 
       h += '<div class="statgroups">';
       h += kvCard('Ratings', [['Average', f2(avg)], ['Best', perfLink(best)], ['Lowest', perfLink(worst)], ['Games rated 8.0+', r8 + ' of ' + rated.length], ['Consistency (std dev)', sd === null ? '–' : f2(sd)], ['Player of the match', a.motm + ' (' + pctS(a.motm, a.apps) + ' of games)']]);
-      h += kvCard('Attacking', [['Goals', a.goals], ['Goals per 90', f2(per90(a.goals, a.seconds))], ['Shots', a.shots], ['Shots per 90', f1(per90(a.shots, a.seconds))], ['Shot conversion', pctS(a.goals, a.shots)], ['Minutes per goal', a.goals ? Math.round(a.seconds / 60 / a.goals) : '–'], ['Longest scoring streak', longest + (longest === 1 ? ' game' : ' games') + (cur && cur === longest ? ' (current)' : '')]]);
+      h += kvCard('Attacking', [['Goals', a.goals], ['Goals per 90', f2(per90(a.goals, a.seconds))], ['Shots', a.shots], ['Shots per 90', f1(per90(a.shots, a.seconds))], ['Shot conversion', pctS(a.goals, a.tries)], ['Minutes per goal', a.goals ? Math.round(a.seconds / 60 / a.goals) : '–'], ['Longest scoring streak', longest + (longest === 1 ? ' game' : ' games') + (cur && cur === longest ? ' (current)' : '')]]);
       h += kvCard('Creating and passing', [['Assists', a.assists], ['Assists per 90', f2(per90(a.assists, a.seconds))], ['Goals + assists per 90', f2(per90(a.goals + a.assists, a.seconds))], ['Share of club goals while playing', pctS(a.goals + a.assists, teamGoals)], ['Games with a goal or assist', gaGames + ' of ' + a.apps], ['Passes completed', a.passesMade + ' of ' + a.passAttempts], ['Pass accuracy', pctS(a.passesMade, a.passAttempts)], ['Passes per 90', f1(per90(a.passesMade, a.seconds))]]);
       var defRows = [['Tackles won', a.tacklesMade + ' of ' + a.tackleAttempts], ['Tackle success', pctS(a.tacklesMade, a.tackleAttempts)], ['Tackles won per 90', f1(per90(a.tacklesMade, a.seconds))], ['Clean sheets', a.cleanSheets], ['Goals conceded per 90', f2(per90(a.goalsConceded, a.seconds))], ['Red cards', a.redCards]];
       if (a.pos.GK) {
@@ -523,6 +575,134 @@
     view.innerHTML = h;
   }
 
+  /* ---------- compare (radar) ---------- */
+  function pctF(v) { return v === null || v === undefined || !isFinite(v) ? '–' : Math.round(v) + '%'; }
+  var CMP = {
+    rating: { label: 'Rating', f: avgRating, fmt: f2 },
+    g90: { label: 'Goals /90', f: function (a) { return per90(a.goals, a.seconds); }, fmt: f2 },
+    a90: { label: 'Assists /90', f: function (a) { return per90(a.assists, a.seconds); }, fmt: f2 },
+    s90: { label: 'Shots /90', f: function (a) { return per90(a.tries, a.seconds); }, fmt: f1 },
+    conv: { label: 'Shot conversion', f: function (a) { return pct(a.goals, a.tries); }, fmt: pctF },
+    gi: { label: 'Goal involvement', f: function (a) { return pct(a.goals + a.assists, a.teamGoals); }, fmt: pctF, tip: 'Goals plus assists as a share of the club goals scored while the player was in the squad' },
+    pass: { label: 'Pass accuracy', f: function (a) { return pct(a.passesMade, a.passAttempts); }, fmt: pctF },
+    p90: { label: 'Passes /90', f: function (a) { return per90(a.passesMade, a.seconds); }, fmt: f1 },
+    t90: { label: 'Tackles won /90', f: function (a) { return per90(a.tacklesMade, a.seconds); }, fmt: f1 },
+    tpct: { label: 'Tackle success', f: function (a) { return pct(a.tacklesMade, a.tackleAttempts); }, fmt: pctF },
+    cga90: { label: 'Conceded /90', f: function (a) { return per90(a.goalsConceded, a.seconds); }, fmt: f2, inv: true, tip: 'Goals conceded per 90 minutes. Lower is better, so the percentile is flipped.' },
+    cs: { label: 'Clean sheets', f: function (a) { return pct(a.cleanSheets, a.apps); }, fmt: pctF, tip: 'Share of games with a clean sheet' },
+    sv90: { label: 'Saves /90', f: function (a) { return per90(a.saves, a.seconds); }, fmt: f1 },
+    motm: { label: 'MOTM rate', f: function (a) { return pct(a.motm, a.apps); }, fmt: pctF, tip: 'Share of games with the player of the match award' }
+  };
+  var CMP_TPL = [
+    { k: 'fwd', name: 'Forward', axes: ['g90', 'a90', 's90', 'conv', 'gi', 'pass', 'rating'], pos: 'FWD' },
+    { k: 'mid', name: 'Midfield', axes: ['rating', 'g90', 'a90', 'p90', 'pass', 't90', 'tpct'], pos: 'MID' },
+    { k: 'def', name: 'Defence', axes: ['t90', 'tpct', 'pass', 'p90', 'cga90', 'cs', 'rating'], pos: 'DEF' },
+    { k: 'gk', name: 'Goalkeeper', axes: ['sv90', 'cga90', 'cs', 'p90', 'pass', 'rating', 'motm'], pos: 'GK' },
+    { k: 'wide', name: 'Wide / wing-back', axes: ['rating', 'g90', 'a90', 's90', 'pass', 't90', 'gi'], pos: null }
+  ];
+  /* Percentile rank: the share of the other players in the pool that this value beats (0 = lowest, 100 = best). `vals` includes the
+     player's own value. Ties beat nobody, so an outfield player's 0 saves never ranks above anyone. When lower is better (inv), it counts how many are higher. */
+  function percentile(v, vals, inv) {
+    if (v === null || !vals.length) return null;
+    if (vals.length < 2) return 50;
+    var beaten = vals.filter(function (x) { return inv ? x > v + 1e-9 : x < v - 1e-9; }).length;
+    return beaten / (vals.length - 1) * 100;
+  }
+  function cmpAvail() { return idx.players.filter(function (a) { return a.apps > 0; }); }
+  function cmpSelected() {
+    var avail = cmpAvail(), by = {};
+    avail.forEach(function (a) { by[a.id] = a; });
+    var ids = ui.cmp.sel;
+    if (ids === null) ids = avail.slice().sort(function (x, y) { return y.seconds - x.seconds; }).slice(0, 2).map(function (a) { return a.id; });
+    return ids.filter(function (id) { return by[id]; }).slice(0, MAX_COMPARE).map(function (id) { return by[id]; });
+  }
+  function cmpAdd(a) {
+    var ids = cmpSelected().map(function (x) { return x.id; });
+    if (ids.indexOf(a.id) < 0) { if (ids.length >= MAX_COMPARE) ids.pop(); ids.push(a.id); }
+    ui.cmp.sel = ids;
+    var pos = mainPos(a);
+    CMP_TPL.forEach(function (t) { if (t.pos && t.pos === pos) ui.cmp.tpl = t.k; });
+  }
+
+  var compactMq = window.matchMedia ? window.matchMedia('(max-width: 600px)') : null;
+  function radarSvg(axes, rows) {
+    var compact = !!(compactMq && compactMq.matches);
+    // On a phone the whole drawing is scaled down to fit, so it is laid out smaller with bigger lettering and two-line labels.
+    var W = compact ? 520 : 640, H = compact ? 470 : 520, cx = W / 2, cy = compact ? 236 : 262, R = compact ? 135 : 178, FS = compact ? 18 : 13, n = axes.length;
+    function pt(i, r) { var t = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + r * Math.cos(t), cy + r * Math.sin(t)]; }
+    function xy(p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }
+    function lines(label) {
+      if (label.length <= 9 || label.indexOf(' ') < 0) return [label];
+      var mid = label.length / 2, best = -1, i;
+      for (i = 0; i < label.length; i++) if (label.charAt(i) === ' ' && (best < 0 || Math.abs(i - mid) < Math.abs(best - mid))) best = i;
+      return [label.slice(0, best), label.slice(best + 1)];
+    }
+    var s = '<svg class="radar" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Radar chart comparing ' + rows.map(function (r) { return esc(r.a.name); }).join(', ') + ' on ' + n + ' stats, as percentiles within the squad. The table above lists every value.">';
+    [20, 40, 60, 80, 100].forEach(function (lv) {
+      s += '<polygon class="ring" points="' + axes.map(function (_, i) { return xy(pt(i, R * lv / 100)); }).join(' ') + '"/>';
+    });
+    axes.forEach(function (_, i) { s += '<line class="spoke" x1="' + cx + '" y1="' + cy + '" x2="' + pt(i, R)[0].toFixed(1) + '" y2="' + pt(i, R)[1].toFixed(1) + '"/>'; });
+    if (!compact) [20, 40, 60, 80, 100].forEach(function (lv) { s += '<text class="ringl" x="' + (cx + 4) + '" y="' + (cy - R * lv / 100 - 2).toFixed(1) + '">' + lv + '</text>'; });
+    axes.forEach(function (ax, i) {
+      var t = -Math.PI / 2 + i * 2 * Math.PI / n, c = Math.cos(t), sn = Math.sin(t), p = pt(i, R + 16), ls = lines(ax.mt.label), lh = FS * 1.15;
+      var y0 = p[1] + FS * 0.32 - (ls.length - 1) * lh * (sn < -0.3 ? 1 : sn > 0.3 ? 0 : 0.5);
+      s += '<text class="alab" style="font-size:' + FS + 'px" x="' + p[0].toFixed(1) + '" y="' + y0.toFixed(1) + '" text-anchor="' + (c > 0.3 ? 'start' : c < -0.3 ? 'end' : 'middle') + '">' +
+        ls.map(function (l, k) { return '<tspan x="' + p[0].toFixed(1) + '"' + (k ? ' dy="' + lh.toFixed(1) + '"' : '') + '>' + esc(l) + '</tspan>'; }).join('') + '</text>';
+    });
+    rows.forEach(function (r) {
+      s += '<polygon class="ser s' + r.i + '" points="' + r.cells.map(function (c, k) { return xy(pt(k, R * (c.p === null ? 0 : c.p) / 100)); }).join(' ') + '"/>';
+    });
+    rows.forEach(function (r) {
+      r.cells.forEach(function (c, k) {
+        var p = pt(k, R * (c.p === null ? 0 : c.p) / 100);
+        s += '<circle class="pt s' + r.i + '" cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="' + (compact ? 6 : 4.5) + '"><title>' + esc(r.a.name) + ' · ' + esc(axes[k].mt.label) + ': ' + (c.p === null ? 'no data' : Math.round(c.p) + ' (' + axes[k].mt.fmt(c.v) + ')') + '</title></circle>';
+      });
+    });
+    return s + '</svg>';
+  }
+
+  function viewCompare() {
+    var tpl = CMP_TPL.filter(function (t) { return t.k === ui.cmp.tpl; })[0] || CMP_TPL[0];
+    var avail = cmpAvail(), sel = cmpSelected();
+    var h = notices() + '<div class="dayhead"><h1>Compare players</h1><span class="muted small">saved matches · percentiles within the squad</span></div>';
+    if (!avail.length) { view.innerHTML = h + emptyState(); return; }
+
+    h += '<section class="card"><div class="tabs" role="tablist" aria-label="Stat template">' + CMP_TPL.map(function (t) {
+      return '<button role="tab" data-act="cmp-tpl" data-tpl="' + t.k + '" aria-selected="' + (t.k === tpl.k) + '">' + t.name + '</button>';
+    }).join('') + '</div><div class="card-b"><div class="pickrow" role="group" aria-label="Players to compare">' +
+      avail.slice().sort(function (x, y) { return y.seconds - x.seconds || x.name.localeCompare(y.name); }).map(function (a) {
+        var at = sel.indexOf(a), on = at >= 0, full = !on && sel.length >= MAX_COMPARE;
+        return '<button class="pchip' + (on ? ' on s' + at : '') + '" data-act="cmp-toggle" data-id="' + esc(a.id) + '" aria-pressed="' + on + '"' + (full ? ' aria-disabled="true"' : '') + '>' +
+          '<i class="sw"></i>' + esc(a.name) + '</button>';
+      }).join('') + '</div><p class="muted small" style="margin-top:8px">Pick up to ' + MAX_COMPARE + ' players. Any player can be compared on any template, whatever position they play.</p></div></section>';
+
+    if (!sel.length) { view.innerHTML = h + '<div class="card"><div class="card-b"><p><b>Pick a player above to start.</b></p></div></div>'; return; }
+
+    var maxApps = Math.max.apply(null, avail.map(function (a) { return a.apps; }));
+    var minApps = Math.max(1, Math.ceil(maxApps * 0.3));
+    var pool = avail.filter(function (a) { return a.apps >= minApps || sel.indexOf(a) >= 0; });
+    var axes = tpl.axes.map(function (k) {
+      var mt = CMP[k];
+      return { k: k, mt: mt, vals: pool.map(mt.f).filter(function (v) { return v !== null; }) };
+    });
+    var rows = sel.map(function (a, i) {
+      return { a: a, i: i, cells: axes.map(function (ax) { var v = ax.mt.f(a); return { v: v, p: percentile(v, ax.vals, ax.mt.inv) }; }) };
+    });
+
+    h += '<section class="card"><div class="tw"><table class="cmptable"><thead><tr><th>Percentile</th>' + axes.map(function (ax) {
+      return '<th' + (ax.mt.tip ? ' title="' + esc(ax.mt.tip) + '"' : '') + '>' + esc(ax.mt.label) + '</th>';
+    }).join('') + '<th>Minutes</th><th><span class="sr">Remove</span></th></tr></thead><tbody>' + rows.map(function (r) {
+      var pos = mainPos(r.a);
+      return '<tr class="s' + r.i + '"><td class="name"><a href="' + playerHref(r.a.id) + '">' + esc(r.a.name) + '</a><small>' + r.a.apps + (r.a.apps === 1 ? ' game' : ' games') + (pos ? ' · ' + POS_LABEL[pos] : '') + '</small></td>' +
+        r.cells.map(function (c, k) { return '<td><b class="pv">' + (c.p === null ? '–' : Math.round(c.p)) + '</b><small>' + (c.v === null ? '' : axes[k].mt.fmt(c.v)) + '</small></td>'; }).join('') +
+        '<td>' + mins(r.a.seconds) + '</td><td><button class="x" data-act="cmp-toggle" data-id="' + esc(r.a.id) + '" aria-label="Remove ' + esc(r.a.name) + '">×</button></td></tr>';
+    }).join('') + '</tbody></table></div></section>';
+
+    h += '<section class="card"><div class="card-b">' + radarSvg(axes, rows) + '</div></section>';
+    h += '<p class="note">Each number is where the player ranks among the ' + pool.length + (pool.length === 1 ? ' squad member' : ' squad members') + ' with ' + minApps + '+ saved games (plus anyone you add above): 100 is the best in the squad and 0 the lowest. The small figure under it is the real value. Conceded per 90 is flipped so 100 is always best. Shot conversion counts a goal as at least one shot. A stat a player never records, such as saves for an outfield player, ranks at the bottom.</p>';
+    view.innerHTML = h;
+  }
+
   /* ---------- club stats ---------- */
   function board(title, sub, rows) {
     return '<section class="card"><div class="card-h"><h2>' + title + '</h2><span class="muted small">' + sub + '</span></div><div class="plist">' +
@@ -535,6 +715,113 @@
       .map(function (a) { return { a: a, v: valueFn(a) }; }).filter(function (r) { return r.v !== null && r.v > 0; })
       .sort(function (x, y) { return y.v - x.v || y.a.apps - x.a.apps; })
       .map(function (r) { return { a: r.a, s: fmt(r.v) }; });
+  }
+
+  /* Team-level numbers from the saved matches. Every figure adds up human players only (EA does not report AI teammates). */
+  function streakOf(ms, pred) {
+    var cur = 0, best = 0;
+    ms.forEach(function (m) { if (pred(m)) { cur++; if (cur > best) best = cur; } else cur = 0; });
+    return { cur: cur, best: best };
+  }
+  var DAYPARTS = [
+    ['Morning', '5 AM – noon', 5, 12], ['Afternoon', 'noon – 5 PM', 12, 17], ['Evening', '5 – 9 PM', 17, 21], ['Night', '9 PM – midnight', 21, 24], ['Late night', 'midnight – 5 AM', 0, 5]
+  ];
+  function teamSections(ms) {
+    var P = ms.length, h = '', name = esc(db.club.name);
+    function acc() { return { goals: 0, tries: 0, pg: 0, pm: 0, pa: 0, tm: 0, ta: 0, sv: 0, rc: 0, rs: 0, rn: 0 }; }
+    var U = acc(), O = acc(), pts = 0, out = { n: 0, w: 0 }, csN = 0, scoredN = 0, ratings = [];
+    var byRes = { W: { n: 0, rs: [], gf: 0, ga: 0 }, D: { n: 0, rs: [], gf: 0, ga: 0 }, L: { n: 0, rs: [], gf: 0, ga: 0 } };
+    var parts = DAYPARTS.map(function (d) { return { d: d, ms: [] }; });
+    var pos = { GK: [0, 0], DEF: [0, 0], MID: [0, 0], FWD: [0, 0], 'N/A': [0, 0] }, humanGoals = 0, ourGoals = 0;
+    ms.forEach(function (m) {
+      [[U, m.us, m.stats.us, m.players.us], [O, m.them, m.stats.them, m.players.them]].forEach(function (x) {
+        var t = x[0], st = x[2];
+        t.goals += x[1].goals; t.tries += triesOf(x[3]); t.pg += st.playerGoals; t.pm += st.passesMade; t.pa += st.passAttempts;
+        t.tm += st.tacklesMade; t.ta += st.tackleAttempts; t.sv += st.saves; t.rc += st.redCards;
+        if (st.avgRating > 0) { t.rs += st.avgRating; t.rn++; }
+      });
+      pts += m.result === 'W' ? 3 : m.result === 'D' ? 1 : 0;
+      if (triesOf(m.players.us) > triesOf(m.players.them)) { out.n++; if (m.result === 'W') out.w++; }
+      if (m.them.goals === 0) csN++;
+      if (m.us.goals > 0) scoredN++;
+      var tr = m.stats.us.avgRating;
+      if (tr > 0) { ratings.push(tr); byRes[m.result].rs.push(tr); }
+      byRes[m.result].n++; byRes[m.result].gf += m.us.goals; byRes[m.result].ga += m.them.goals;
+      var hr = zoneHour(m.ts);
+      parts.forEach(function (p) { if (hr >= p.d[2] && hr < p.d[3]) p.ms.push(m); });
+      m.players.us.forEach(function (p) { pos[p.pos][0] += p.goals; pos[p.pos][1] += p.assists; humanGoals += p.goals; });
+      ourGoals += m.us.goals;
+    });
+
+    // us against the average opponent
+    var rows = [
+      ['Goals', U.goals / P, O.goals / P, f2, false],
+      ['Shots', U.tries / P, O.tries / P, f1, false],
+      ['Shot conversion', pct(U.pg, U.tries), pct(O.pg, O.tries), pctF, false],
+      ['Passes completed', U.pm / P, O.pm / P, f1, false],
+      ['Pass accuracy', pct(U.pm, U.pa), pct(O.pm, O.pa), pctF, false],
+      ['Tackles won', U.tm / P, O.tm / P, f1, false],
+      ['Tackle success', pct(U.tm, U.ta), pct(O.tm, O.ta), pctF, false],
+      ['Saves', U.sv / P, O.sv / P, f1, false],
+      ['Red cards', U.rc / P, O.rc / P, f2, true],
+      ['Team average rating', U.rn ? U.rs / U.rn : null, O.rn ? O.rs / O.rn : null, f2, false]
+    ];
+    h += '<section class="card"><div class="card-h"><h2>Team numbers per game</h2><span class="muted small">' + name + ' v the average opponent · ' + P + (P === 1 ? ' game' : ' games') + '</span></div><div class="tw"><table class="vs"><thead><tr><th>Stat</th><th>' + name + '</th><th>Opponents</th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        var a = r[1], b = r[2], better = a === null || b === null || Math.abs(a - b) < 1e-9 ? 0 : ((a > b) !== r[4] ? 1 : 2);
+        return '<tr><td class="name">' + r[0] + '</td><td class="' + (better === 1 ? 'better' : '') + '">' + r[3](a) + '</td><td class="' + (better === 2 ? 'better' : '') + '">' + r[3](b) + '</td></tr>';
+      }).join('') + '</tbody></table></div><div class="card-b small muted">The better side of each row is highlighted. Human players only.</div></section>';
+
+    // derived ratings
+    var l5 = ratings.slice(-5), sd = stdev(ratings), allAvg = mean(ratings);
+    var shotShare = pct(U.tries, U.tries + O.tries), gd = (U.goals - O.goals) / P;
+    var tiles = [
+      [(gd >= 0 ? '+' : '−') + Math.abs(gd).toFixed(2), 'Goal difference per game'],
+      [f2(pts / P), 'Points per game'],
+      [pctF(shotShare), 'Share of all shots'],
+      [pctF(pct(csN, P)), 'Games with a clean sheet'],
+      [pctF(pct(scoredN, P)), 'Games we scored in'],
+      [out.n ? pctF(pct(out.w, out.n)) : '–', 'Win rate when out-shooting them' + (out.n ? ' (' + out.n + ')' : '')],
+      [f2(U.rc / P), 'Red cards per game'],
+      [sd === null ? '–' : f2(sd), 'Consistency (std dev of team rating)'],
+      [P > 5 && allAvg !== null ? ((mean(l5) - allAvg >= 0 ? '+' : '−') + Math.abs(mean(l5) - allAvg).toFixed(2)) : '–', 'Last 5 team rating v season']
+    ];
+    h += '<section class="card"><div class="card-h"><h2>Derived ratings</h2><span class="muted small">calculated from the saved matches</span></div><div class="tiles t3">' +
+      tiles.map(function (x) { return '<div class="tile"><b>' + x[0] + '</b><span>' + x[1] + '</span></div>'; }).join('') + '</div></section>';
+
+    // streaks + results v ratings
+    var st = [['Winning run', streakOf(ms, function (m) { return m.result === 'W'; })], ['Unbeaten run', streakOf(ms, function (m) { return m.result !== 'L'; })],
+      ['Games in a row with a goal', streakOf(ms, function (m) { return m.us.goals > 0; })], ['Clean sheets in a row', streakOf(ms, function (m) { return m.them.goals === 0; })]];
+    h += '<div class="grid2"><section class="card"><div class="card-h"><h2>Streaks</h2><span class="muted small">current · best</span></div><div class="card-b"><dl class="kv">' +
+      st.map(function (s) { return '<dt>' + s[0] + '</dt><dd>' + s[1].cur + ' · ' + s[1].best + '</dd>'; }).join('') + '</dl></div></section>';
+    h += '<section class="card"><div class="card-h"><h2>Team rating by result</h2><span class="muted small">average team rating</span></div><div class="tw"><table><thead><tr><th>Result</th><th>Games</th><th>Rating</th><th>GF–GA</th></tr></thead><tbody>' +
+      ['W', 'D', 'L'].map(function (r) {
+        var b = byRes[r];
+        return '<tr><td class="name">' + resChip(r) + '</td><td>' + b.n + '</td><td>' + (b.rs.length ? rt(mean(b.rs)) : '–') + '</td><td>' + (b.n ? f1(b.gf / b.n) + '–' + f1(b.ga / b.n) : '–') + '</td></tr>';
+      }).join('') + '</tbody></table></div></section></div>';
+
+    // goals by position + when we play
+    var posRows = ['FWD', 'MID', 'DEF', 'GK'].filter(function (p) { return pos[p][0] + pos[p][1] > 0; }).map(function (p) {
+      return '<div class="cmp"><span>' + POS_LABEL[p] + 's</span><span class="track"><i style="width:' + (humanGoals ? Math.max(2, pos[p][0] / humanGoals * 100) : 2) + '%"></i></span><span class="r"><b>' + pos[p][0] + ' G</b> · ' + pos[p][1] + ' A</span></div>';
+    }).join('');
+    var other = Math.max(0, ourGoals - humanGoals);
+    h += '<div class="grid2"><section class="card"><div class="card-h"><h2>Goals by position</h2><span class="muted small">who scores</span></div><div class="card-b">' + (posRows || '<p class="muted">No goals recorded yet.</p>') +
+      '<p class="muted small" style="margin-top:6px">Bars show each position\'s share of goals credited to club members.' + (other ? ' ' + other + (other === 1 ? ' goal was' : ' goals were') + ' not credited to a human player.' : '') + '</p></div></section>';
+    h += '<section class="card"><div class="card-h"><h2>When we play</h2><span class="muted small">by when the game ended, Central Time</span></div><div class="tw"><table><thead><tr><th>Time of day</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Win %</th></tr></thead><tbody>' +
+      parts.filter(function (p) { return p.ms.length; }).map(function (p) {
+        var x = tally(p.ms);
+        return '<tr><td class="name">' + p.d[0] + '<small>' + p.d[1] + '</small></td><td>' + x.P + '</td><td>' + x.W + '</td><td>' + x.D + '</td><td>' + x.L + '</td><td>' + pctS(x.W, x.P) + '</td></tr>';
+      }).join('') + '</tbody></table></div></section></div>';
+    return h;
+  }
+
+  function squadPer90() {
+    var rows = idx.players.filter(function (a) { return a.apps > 0; }).sort(function (x, y) { return y.seconds - x.seconds; });
+    if (!rows.length) return '';
+    return '<section class="card"><div class="card-h"><h2>Squad per 90 minutes</h2><span class="muted small">saved matches · by minutes played</span></div><div class="tw"><table><thead><tr><th>Player</th><th>Min</th><th>G</th><th>A</th><th>Shots</th><th>Conv %</th><th>Pass %</th><th>Tackles</th><th>Rating</th></tr></thead><tbody>' +
+      rows.map(function (a) {
+        return '<tr><td class="name"><a href="' + playerHref(a.id) + '">' + esc(a.name) + '</a><small>' + a.apps + (a.apps === 1 ? ' game' : ' games') + '</small></td><td>' + mins(a.seconds) + '</td><td>' + f2(per90(a.goals, a.seconds)) + '</td><td>' + f2(per90(a.assists, a.seconds)) + '</td><td>' + f1(per90(a.tries, a.seconds)) + '</td><td>' + pctS(a.goals, a.tries) + '</td><td>' + pctS(a.passesMade, a.passAttempts) + '</td><td>' + f1(per90(a.tacklesMade, a.seconds)) + '</td><td>' + rt(avgRating(a) || 0) + '</td></tr>';
+      }).join('') + '</tbody></table></div><div class="card-b small muted">G, A, shots and tackles are per 90 minutes. Conversion counts a goal as at least one shot.</div></section>';
   }
 
   function viewStats() {
@@ -550,6 +837,7 @@
           return '<a href="' + matchHref(m) + '" title="' + m.us.goals + '–' + m.them.goals + ' v ' + esc(m.them.name) + '">' + resChip(m.result) + '</a>';
         }).join('') + '</div></div></section>';
     }
+    if (ms.length) h += teamSections(ms);
     if (o) {
       h += '<section class="card"><div class="card-h"><h2>All-time</h2><span class="muted small">EA club totals' + (db.updatedAt ? ' · ' + esc(fmtStamp(db.updatedAt)) : '') + '</span></div><div class="tiles">' +
         [['Played', o.gamesPlayed], ['Record', o.wins + '-' + o.draws + '-' + o.losses], ['Win rate', pctS(o.wins, o.gamesPlayed)], ['Goals for', o.goals], ['Goals against', o.goalsAgainst], ['Skill rating', o.skillRating], ['Promotions', o.promotions], ['Relegations', o.relegations], ['Unbeaten run', o.unbeatenStreak], ['League games', o.leagueApps], ['Playoff games', o.playoffApps], ['Goal difference', (o.goals - o.goalsAgainst >= 0 ? '+' : '−') + Math.abs(o.goals - o.goalsAgainst)]]
@@ -568,6 +856,8 @@
         board('Pass accuracy', sub, leaders(function (a) { return pct(a.passesMade, a.passAttempts); }, function (v) { return Math.round(v) + '%'; }, q)) +
         board('Tackles won per 90', sub, leaders(function (a) { return per90(a.tacklesMade, a.seconds); }, f1, q)) +
         board('Saves', 'total', leaders(function (a) { return a.saves; }, String)) + '</div>';
+
+      h += squadPer90();
 
       // records
       var bigW = null, bigL = null, hi = null, perf = null, wRun = 0, wBest = 0, uRun = 0, uBest = 0;
@@ -594,12 +884,12 @@
 
       // opponents
       var opp = {};
-      ms.forEach(function (m) { var e = opp[m.them.id] || (opp[m.them.id] = { name: m.them.name, ms: [], last: 0 }); e.name = m.them.name; e.ms.push(m); e.last = m.ts; });
+      ms.forEach(function (m) { var e = opp[m.them.id] || (opp[m.them.id] = { name: m.them.name, ms: [], last: 0 }); e.name = m.them.name; e.side = m.them; e.ms.push(m); e.last = m.ts; });
       var ol = Object.keys(opp).map(function (k) { return opp[k]; }).sort(function (a, b) { return b.ms.length - a.ms.length || b.last - a.last; });
       h += '<section class="card"><div class="card-h"><h2>Opponents</h2><span class="muted small">' + ol.length + ' faced</span></div><div class="tw"><table><thead><tr><th>Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>Last met</th></tr></thead><tbody>' +
         ol.slice(0, 25).map(function (e) {
           var x = tally(e.ms), lastM = e.ms[e.ms.length - 1];
-          return '<tr><td class="name"><a href="' + matchHref(lastM) + '">' + esc(e.name) + '</a></td><td>' + x.P + '</td><td>' + x.W + '</td><td>' + x.D + '</td><td>' + x.L + '</td><td>' + x.GF + '</td><td>' + x.GA + '</td><td>' + esc(fmtDayShort(lastM.day)) + '</td></tr>';
+          return '<tr><td class="name"><a class="who" href="' + matchHref(lastM) + '">' + crest(e.side, 24) + '<span>' + esc(e.name) + '</span></a></td><td>' + x.P + '</td><td>' + x.W + '</td><td>' + x.D + '</td><td>' + x.L + '</td><td>' + x.GF + '</td><td>' + x.GA + '</td><td>' + esc(fmtDayShort(lastM.day)) + '</td></tr>';
         }).join('') + '</tbody></table></div></section>';
     }
     view.innerHTML = h;
@@ -615,7 +905,8 @@
       ['Last pulled from EA', db.updatedAt ? esc(fmtStamp(db.updatedAt)) : '–'], ['Added in this browser', db.imported ? db.imported + ' (stored on this device only)' : 'none'], ['EA club ID', clubId || '–']]);
     h += '<section class="card"><div class="card-h"><h2>How history builds up</h2></div><div class="card-b" style="display:flex;flex-direction:column;gap:8px">' +
       '<p>EA only keeps a club\'s most recent games (about 10 per competition) and removes older ones. This site keeps every game it has ever fetched, so the calendar grows from the first fetch onward.</p>' +
-      '<p>The GitHub version runs <code>scripts/fetch.mjs</code> on a schedule. Each run adds any new games to <code>data/db.js</code> and the site updates itself.</p></div></section>';
+      '<p>The GitHub version runs <code>scripts/fetch.mjs</code> every 5 minutes. Each run adds any new games to <code>data/db.js</code> and the site updates itself.</p>' +
+      '<p>Club crests are loaded from EA\'s own image server using the crest ID that comes with each match.</p></div></section>';
     h += '<section class="card"><div class="card-h"><h2>Add games by hand</h2></div><div class="card-b" style="display:flex;flex-direction:column;gap:10px">' +
       '<ol class="steps"><li>Open this address in a normal browser tab: <code>' + url + '</code> (swap <code>leagueMatch</code> for <code>playoffMatch</code> or <code>friendlyMatch</code> as needed).</li><li>Select everything on that page and copy it.</li><li>Paste it below, choose the competition, and press Add games.</li></ol>' +
       '<label for="import-json" class="small muted">EA match JSON</label><textarea id="import-json" spellcheck="false" placeholder="[{&quot;matchId&quot;: … }]"></textarea>' +
@@ -654,7 +945,14 @@
   function render() {
     var hash = (location.hash || '').replace(/^#/, '');
     var m;
-    if (hash !== lastRoute) { if (lastRoute !== null) window.scrollTo(0, 0); if (hash.indexOf('match-') === 0) ui.tab = 'facts'; if (hash.indexOf('day-') === 0) ui.calMonth = null; lastRoute = hash; }
+    if (hash !== lastRoute) {
+      if (lastRoute !== null) window.scrollTo(0, 0);
+      if (hash.indexOf('match-') === 0) ui.tab = 'facts';
+      if (hash.indexOf('day-') === 0) ui.calMonth = null;
+      if ((m = /^compare-([A-Za-z0-9]+)$/.exec(hash)) && idx.bySlug[m[1]] && idx.bySlug[m[1]].apps) cmpAdd(idx.bySlug[m[1]]); // arriving from a player profile
+      lastRoute = hash;
+    }
+    if (/^compare(-[A-Za-z0-9]+)?$/.test(hash)) { setNav('compare'); return viewCompare(); }
     if (hash === 'squad') { setNav('squad'); return viewSquad(); }
     if (hash === 'stats') { setNav('stats'); return viewStats(); }
     if (hash === 'data') { setNav('data'); return viewData(); }
@@ -675,6 +973,12 @@
       ui.calMonth = d.getFullYear() + '-' + pad(d.getMonth() + 1);
     }
     else if (act === 'tab') ui.tab = el.getAttribute('data-tab');
+    else if (act === 'cmp-tpl') ui.cmp.tpl = el.getAttribute('data-tpl');
+    else if (act === 'cmp-toggle') {
+      var cid = el.getAttribute('data-id'), ids = cmpSelected().map(function (a) { return a.id; }), at = ids.indexOf(cid);
+      if (at >= 0) ids.splice(at, 1); else if (ids.length < MAX_COMPARE) ids.push(cid);
+      ui.cmp.sel = ids;
+    }
     else if (act === 'squad-mode') ui.squadMode = el.getAttribute('data-mode');
     else if (act === 'sort') { var k = el.getAttribute('data-k'); if (ui.sortK === k) ui.sortDir = -ui.sortDir; else { ui.sortK = k; ui.sortDir = -1; } }
     else if (act === 'import') doImport();
@@ -682,6 +986,12 @@
     render();
   });
   window.addEventListener('hashchange', render);
+  if (compactMq && compactMq.addEventListener) compactMq.addEventListener('change', function () { if (/^compare/.test((location.hash || '').replace(/^#/, ''))) render(); });
+  // a crest image that fails to load (blocked, offline, removed by EA) falls back to the club's initials
+  document.addEventListener('error', function (e) {
+    var t = e.target;
+    if (t && t.tagName === 'IMG' && t.parentNode && t.parentNode.classList && t.parentNode.classList.contains('cr')) t.parentNode.classList.add('bad');
+  }, true);
 
   reload();
   render();
