@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eatmob</title>
+<meta name="description" content="Match history, player ratings and stats for Eaters, an EA SPORTS FC Clubs team.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#matches" aria-label="eatmob home"><span class="brand-mark" aria-hidden="true"></span>eatmob</a>
+    <nav class="nav" id="nav" aria-label="Sections">
+      <a href="#matches" data-nav="matches">Matches</a>
+      <a href="#squad" data-nav="squad">Squad</a>
+      <a href="#compare" data-nav="compare">Compare</a>
+      <a href="#stats" data-nav="stats">Stats</a>
+      <a href="#data" data-nav="data" class="minor">Data</a>
+    </nav>
+  </div>
+</header>
+<main id="view" class="wrap"></main>
+<footer class="foot wrap">
+  <p>eatmob is a fan-made tracker for the Eaters club. Match data comes from EA SPORTS FC Clubs. Not affiliated with EA or any other company. <a href="#data">Data and how it updates</a>.</p>
+</footer>
+<script src="data/db.js"></script>
+<script src="lib/normalize.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
