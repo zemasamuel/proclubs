@@ -1,0 +1,35 @@
+name: Fetch matches from EA
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"   # every 30 minutes
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch-matches
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Pull latest matches
+        run: node scripts/fetch.mjs
+      - name: Commit new matches
+        run: |
+          if git diff --quiet -- data/db.js; then
+            echo "No new data."
+          else
+            git config user.name "eatmob-bot"
+            git config user.email "eatmob-bot@users.noreply.github.com"
+            git add data/db.js
+            git commit -m "Update match data"
+            git push
+          fi
