@@ -4,7 +4,7 @@
 
   var N = window.EatmobNormalize;
   var TIME_ZONE = 'America/Chicago'; // every date and time on the site is shown in this zone (Central: CST in winter, CDT in summer)
-  var CREST_BASE = 'https://eafc24.content.easports.com/fifa/fltOnlineAssets/24B23FDE-7835-41C2-87A2-F453DFDB2E82/2024/fcweb/crests/256x256/l';
+  var CREST_BASE = 'https://proclubs.ea.com/api/fc/assets/crests/256x256/l';
   var DAY_STARTS_AT_HOUR = 5;      // a game that ends at 12:17 AM belongs to the night before
   var MATCH_SECONDS = 5400;        // EA reports game-clock seconds; 5400 = 90 minutes
   var LS_KEY = 'eatmob-import-v1';
@@ -16,7 +16,7 @@
   var view = document.getElementById('view');
   var memoryImport = null;
   var ui = { calOpen: false, calMonth: null, tab: 'facts', squadMode: 'tracked', sortK: 'rating', sortDir: -1, importMsg: null, cmp: { tpl: 'fwd', sel: null } };
-  var MAX_COMPARE = 5;
+  var MAX_COMPARE = 99;
   var db, idx;
 
   /* ---------- helpers ---------- */
@@ -52,7 +52,21 @@
   function per90(v, sec) { return sec > 0 ? v * MATCH_SECONDS / sec : null; }
   function mins(sec) { return Math.round(sec / 60); }
   function rtClass(r) { return !(r > 0) ? 'none' : r >= 9 ? 'elite' : r >= 7 ? 'good' : r >= 6 ? 'mid' : 'low'; }
-  function rt(r, big) { return '<span class="rt ' + rtClass(r) + (big ? ' big' : '') + '">' + (r > 0 ? r.toFixed(1) : '–') + '</span>'; }
+  function rtColor(r, motm) {
+    if (motm) return '#4f9eff';
+    if (!(r > 0)) return '#666';
+    var t = Math.max(0, Math.min(1, (r - 4) / 6));
+    var h = Math.round(t * 120);
+    var s = 75, l = r >= 8 ? 42 : 38;
+    return 'hsl(' + h + ',' + s + '%,' + l + '%)';
+  }
+  function rt(r, big, motm) {
+    if (!(r > 0)) return '<span class="rt none' + (big ? ' big' : '') + '">–</span>';
+    var color = rtColor(r, motm);
+    return '<span class="rt' + (big ? ' big' : '') + '" style="background:' + color + ';color:#fff">' + r.toFixed(1) + '</span>';
+  }
+  var ICON_GOAL = '<svg class="ev-icon" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="7" cy="7" r="6.5" fill="none" stroke="currentColor" stroke-width="1"/><polygon points="7,2.5 8.4,5.4 11.6,5.9 9.3,8.1 9.9,11.3 7,9.8 4.1,11.3 4.7,8.1 2.4,5.9 5.6,5.4" fill="currentColor" opacity="0.15"/><circle cx="7" cy="7" r="2" fill="currentColor"/><line x1="7" y1="0.5" x2="7" y2="2.5" stroke="currentColor" stroke-width="1"/><line x1="7" y1="11.5" x2="7" y2="13.5" stroke="currentColor" stroke-width="1"/><line x1="0.5" y1="7" x2="2.5" y2="7" stroke="currentColor" stroke-width="1"/><line x1="11.5" y1="7" x2="13.5" y2="7" stroke="currentColor" stroke-width="1"/></svg>';
+  var ICON_ASSIST = '<svg class="ev-icon" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 11 Q4 4 10 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 1.5 L10.5 3 L8.5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function initials(name) { var s = String(name).replace(/[^A-Za-z0-9]/g, ''); return esc((s.slice(0, 2) || '?').toUpperCase()); }
   function resChip(r) { return '<span class="res ' + r + '" title="' + ({ W: 'Win', D: 'Draw', L: 'Loss' }[r]) + '">' + r + '</span>'; }
   function times(n) { return n > 1 ? ' ×' + n : ''; }
@@ -411,7 +425,7 @@
   function playerTable(players, us) {
     return '<div class="tw"><table><thead><tr><th>Player</th><th>Pos</th><th>Rating</th><th title="Minutes on the game clock">Min</th><th>G</th><th>A</th><th>Shots</th><th>Passes</th><th>Pass %</th><th>Tackles</th><th>Saves</th><th title="Red cards">RC</th></tr></thead><tbody>' +
       players.map(function (p) {
-        return '<tr><td class="name">' + (us ? '<a href="' + playerHref(p.id) + '">' + esc(p.name) + '</a>' : esc(p.name)) + (p.motm ? ' <span class="tag">MOTM</span>' : '') + '</td><td>' + p.pos + '</td><td>' + rt(p.rating) + '</td><td>' + mins(p.secondsPlayed || 0) + '</td><td>' + p.goals + '</td><td>' + p.assists + '</td><td>' + p.shots + '</td><td>' + p.passesMade + '/' + p.passAttempts + '</td><td>' + pctS(p.passesMade, p.passAttempts) + '</td><td>' + p.tacklesMade + '/' + p.tackleAttempts + '</td><td>' + p.saves + '</td><td>' + p.redCards + '</td></tr>';
+        return '<tr><td class="name">' + (us ? '<a href="' + playerHref(p.id) + '">' + esc(p.name) + '</a>' : esc(p.name)) + '</td><td>' + p.pos + '</td><td>' + rt(p.rating, false, p.motm) + '</td><td>' + mins(p.secondsPlayed || 0) + '</td><td>' + (p.goals > 0 ? '<span class="ev-stat">' + ICON_GOAL + ' ' + p.goals + '</span>' : p.goals) + '</td><td>' + (p.assists > 0 ? '<span class="ev-stat">' + ICON_ASSIST + ' ' + p.assists + '</span>' : p.assists) + '</td><td>' + p.shots + '</td><td>' + p.passesMade + '/' + p.passAttempts + '</td><td>' + pctS(p.passesMade, p.passAttempts) + '</td><td>' + p.tacklesMade + '/' + p.tackleAttempts + '</td><td>' + p.saves + '</td><td>' + p.redCards + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
   function matchPlayers(m) {
@@ -438,7 +452,10 @@
       if (b === null || b === undefined) return -1;
       return (a - b) * ui.sortDir || x.a.name.localeCompare(y.a.name);
     });
-    var fm = { ga90: f2, pass: function (v) { return v === null ? '–' : Math.round(v) + '%'; }, win: function (v) { return v === null ? '–' : v + '%'; }, rating: function (v) { return rt(v || 0); }, ovr: function (v) { return v === null ? '–' : v; } };
+    var fm = { ga90: f2, pass: function (v) { return v === null ? '–' : Math.round(v) + '%'; }, win: function (v) { return v === null ? '–' : v + '%'; }, rating: function (v, r) { return rt(v || 0, false, r && r.mem && r.mem.motm > 0); }, ovr: function (v) { return v === null ? '–' : v; },
+      goals: function (v) { return v > 0 ? '<span class="ev-stat">' + ICON_GOAL + ' ' + v + '</span>' : v === null ? '–' : v; },
+      assists: function (v) { return v > 0 ? '<span class="ev-stat">' + ICON_ASSIST + ' ' + v + '</span>' : v === null ? '–' : v; }
+    };
     var h = notices() + '<div class="dayhead"><h1>Squad</h1><div class="seg" role="group" aria-label="Stats source">' +
       '<button data-act="squad-mode" data-mode="tracked" aria-pressed="' + tracked + '">Saved matches</button>' +
       '<button data-act="squad-mode" data-mode="ea" aria-pressed="' + !tracked + '">All-time (EA)</button></div></div>';
@@ -448,7 +465,7 @@
     }).join('') + '</tr></thead><tbody>' + rows.map(function (r) {
       var pos = mainPos(r.a);
       return '<tr><td class="name"><a href="' + playerHref(r.a.id) + '">' + esc(r.a.name) + (r.mem && r.mem.proName ? '<small>' + esc(r.mem.proName) + '</small>' : '') + '</a></td><td>' + (pos || '–') + '</td>' +
-        cols.map(function (c) { var val = r.v[c[0]]; return '<td>' + (fm[c[0]] ? fm[c[0]](val === undefined ? null : val) : (val === null ? '–' : val)) + '</td>'; }).join('') + '</tr>';
+        cols.map(function (c) { var val = r.v[c[0]]; return '<td>' + (fm[c[0]] ? fm[c[0]](val === undefined ? null : val, r) : (val === null ? '–' : val)) + '</td>'; }).join('') + '</tr>';
     }).join('') + '</tbody></table></div></section>';
     h += '<p class="note">' + (tracked
       ? 'Saved matches covers the ' + idx.matches.length + ' games stored on this site. Tap a column to sort.'
@@ -470,7 +487,7 @@
     s += '<line class="avg" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(avg) + '" y2="' + Y(avg) + '"/>';
     if (pts.length > 1) s += '<polyline class="ln" points="' + pts.map(function (x, i) { return X(i).toFixed(1) + ',' + Y(x.p.rating).toFixed(1); }).join(' ') + '"/>';
     pts.forEach(function (x, i) {
-      s += '<a href="' + matchHref(x.m) + '"><circle class="' + rtClass(x.p.rating) + '" cx="' + X(i).toFixed(1) + '" cy="' + Y(x.p.rating).toFixed(1) + '" r="6"><title>' + x.p.rating.toFixed(1) + ' v ' + esc(x.m.them.name) + ' (' + x.m.us.goals + '–' + x.m.them.goals + '), ' + esc(fmtDayShort(x.m.day)) + '</title></circle></a>';
+      s += '<a href="' + matchHref(x.m) + '"><circle fill="' + rtColor(x.p.rating, x.p.motm) + '" cx="' + X(i).toFixed(1) + '" cy="' + Y(x.p.rating).toFixed(1) + '" r="6"><title>' + x.p.rating.toFixed(1) + ' v ' + esc(x.m.them.name) + ' (' + x.m.us.goals + '–' + x.m.them.goals + '), ' + esc(fmtDayShort(x.m.day)) + '</title></circle></a>';
     });
     s += '<text class="axis" x="' + L + '" y="' + (H - 8) + '">' + esc(fmtDayShort(pts[0].m.day)) + '</text>';
     if (pts.length > 1) s += '<text class="axis" x="' + (W - R) + '" y="' + (H - 8) + '" text-anchor="end">' + esc(fmtDayShort(pts[pts.length - 1].m.day)) + '</text>';
@@ -569,7 +586,7 @@
       h += '<section class="card"><div class="card-h"><h2>Match log</h2><span class="muted small">newest first</span></div><div class="tw"><table><thead><tr><th>Match</th><th>Result</th><th>Pos</th><th>Min</th><th>G</th><th>A</th><th>Shots</th><th>Pass %</th><th>Tackles</th><th>Rating</th></tr></thead><tbody>' +
         a.log.slice().reverse().map(function (x) {
           var p = x.p, m = x.m;
-          return '<tr><td class="name"><a href="' + matchHref(m) + '">v ' + esc(m.them.name) + '<small>' + esc(fmtDayShort(m.day)) + ' · ' + TYPE_LABEL[m.type] + '</small></a></td><td>' + resChip(m.result) + ' ' + m.us.goals + '–' + m.them.goals + '</td><td>' + p.pos + '</td><td>' + mins(p.secondsPlayed || 0) + '</td><td>' + p.goals + '</td><td>' + p.assists + '</td><td>' + p.shots + '</td><td>' + pctS(p.passesMade, p.passAttempts) + '</td><td>' + p.tacklesMade + '</td><td>' + rt(p.rating) + (p.motm ? ' <span class="tag">MOTM</span>' : '') + '</td></tr>';
+          return '<tr><td class="name"><a href="' + matchHref(m) + '">v ' + esc(m.them.name) + '<small>' + esc(fmtDayShort(m.day)) + ' · ' + TYPE_LABEL[m.type] + '</small></a></td><td>' + resChip(m.result) + ' ' + m.us.goals + '–' + m.them.goals + '</td><td>' + p.pos + '</td><td>' + mins(p.secondsPlayed || 0) + '</td><td>' + (p.goals > 0 ? '<span class="ev-stat">' + ICON_GOAL + ' ' + p.goals + '</span>' : p.goals) + '</td><td>' + (p.assists > 0 ? '<span class="ev-stat">' + ICON_ASSIST + ' ' + p.assists + '</span>' : p.assists) + '</td><td>' + p.shots + '</td><td>' + pctS(p.passesMade, p.passAttempts) + '</td><td>' + p.tacklesMade + '</td><td>' + rt(p.rating, false, p.motm) + '</td></tr>';
         }).join('') + '</tbody></table></div></section>';
     }
     view.innerHTML = h;
@@ -591,14 +608,15 @@
     cga90: { label: 'Conceded /90', f: function (a) { return per90(a.goalsConceded, a.seconds); }, fmt: f2, inv: true, tip: 'Goals conceded per 90 minutes. Lower is better, so the percentile is flipped.' },
     cs: { label: 'Clean sheets', f: function (a) { return pct(a.cleanSheets, a.apps); }, fmt: pctF, tip: 'Share of games with a clean sheet' },
     sv90: { label: 'Saves /90', f: function (a) { return per90(a.saves, a.seconds); }, fmt: f1 },
-    motm: { label: 'MOTM rate', f: function (a) { return pct(a.motm, a.apps); }, fmt: pctF, tip: 'Share of games with the player of the match award' }
+    motm: { label: 'MOTM rate', f: function (a) { return pct(a.motm, a.apps); }, fmt: pctF, tip: 'Share of games with the player of the match award' },
+    pressing_rate: { label: 'Pressing rate', f: function (a) { return a.seconds > 0 ? a.tackleAttempts / (a.seconds / MATCH_SECONDS) : null; }, fmt: f1, tip: 'Tackle attempts per 90 minutes — a proxy for pressing intensity' },
+    atk_threat: { label: 'Attacking threat', f: function (a) { return a.seconds > 0 ? (a.goals + a.assists + a.tries) / (a.seconds / MATCH_SECONDS) : null; }, fmt: f1, tip: 'Goals + assists + shots per 90 minutes' }
   };
   var CMP_TPL = [
-    { k: 'fwd', name: 'Forward', axes: ['g90', 'a90', 's90', 'conv', 'gi', 'pass', 'rating'], pos: 'FWD' },
-    { k: 'mid', name: 'Midfield', axes: ['rating', 'g90', 'a90', 'p90', 'pass', 't90', 'tpct'], pos: 'MID' },
-    { k: 'def', name: 'Defence', axes: ['t90', 'tpct', 'pass', 'p90', 'cga90', 'cs', 'rating'], pos: 'DEF' },
-    { k: 'gk', name: 'Goalkeeper', axes: ['sv90', 'cga90', 'cs', 'p90', 'pass', 'rating', 'motm'], pos: 'GK' },
-    { k: 'wide', name: 'Wide / wing-back', axes: ['rating', 'g90', 'a90', 's90', 'pass', 't90', 'gi'], pos: null }
+    { k: 'fwd',  name: 'Forward',          axes: ['g90', 's90', 'a90', 'pass', 'conv', 'gi'],           pos: 'FWD' },
+    { k: 'mid',  name: 'Midfield',          axes: ['g90', 'a90', 'p90', 't90', 'pressing_rate', 'pass'], pos: 'MID' },
+    { k: 'def',  name: 'Defence',           axes: ['t90', 'pressing_rate', 'tpct', 'pass', 'p90', 'cs'], pos: 'DEF' },
+    { k: 'wide', name: 'Wide / wing-back',  axes: ['g90', 's90', 'a90', 't90', 'pressing_rate', 'pass'], pos: null }
   ];
   /* Percentile rank: the share of the other players in the pool that this value beats (0 = lowest, 100 = best). `vals` includes the
      player's own value. Ties beat nobody, so an outfield player's 0 saves never ranks above anyone. When lower is better (inv), it counts how many are higher. */
