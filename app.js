@@ -4,7 +4,7 @@
 
   var N = window.EatmobNormalize;
   var TIME_ZONE = 'America/Chicago';
-  var CREST_BASE = 'https://wsrv.nl/?url=proclubsanalytics.com/api/club-crest/';
+  var CREST_BASE = 'https://eatmob-crests.zemasamuel.workers.dev/';
   var DAY_STARTS_AT_HOUR = 5;      // games ending before 5 AM count for the previous day
   var MATCH_SECONDS = 5400;        // game-clock seconds in 90 minutes
   var SUB_MARGIN = 60;             // played this many seconds less than the longest-serving player = sub
