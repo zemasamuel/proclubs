@@ -4,7 +4,7 @@
 
   var N = window.EatmobNormalize;
   var TIME_ZONE = 'America/Chicago';
-  var CREST_BASE = 'crests/';
+  var CREST_BASE = 'https://eafc24.content.easports.com/img/user_avatar/FC25/default/l';
   var DAY_STARTS_AT_HOUR = 5;      // games ending before 5 AM count for the previous day
   var MATCH_SECONDS = 5400;        // game-clock seconds in 90 minutes
   var SUB_MARGIN = 60;             // played this many seconds less than the longest-serving player = sub
@@ -90,7 +90,7 @@
   function stdev(a) { if (a.length < 2) return null; var m = mean(a); return Math.sqrt(mean(a.map(function (v) { return (v - m) * (v - m); }))); }
   function crest(side, size) {
     var id = side && /^\d+$/.test(side.crest || '') ? side.crest : '';
-    var img = id ? '<img src="' + CREST_BASE + id + '.png" alt="" loading="lazy" decoding="async" onerror="this.parentNode.classList.add(\'bad\')">' : '';
+    var img = id ? '<img src="' + CREST_BASE + id + '.png" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add(\'bad\')">' : '';
     return '<span class="cr s' + size + (id ? '' : ' bad') + '" aria-hidden="true">' + img +
       '<span class="fb">' + initials(side && side.name || '?') + '</span></span>';
   }
