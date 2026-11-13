@@ -16,7 +16,7 @@
   var view = document.getElementById('view');
   var memoryImport = null;
   var ui = { calOpen: false, calMonth: null, tab: 'facts', squadMode: 'tracked', sortK: 'rating', sortDir: -1, importMsg: null, cmp: { tpl: 'fwd', sel: null } };
-  var MAX_COMPARE = 99;
+  var MAX_COMPARE = 4;
   var db, idx;
 
   /* ---------- helpers ---------- */
@@ -57,7 +57,7 @@
     if (!(r > 0)) return '#666';
     var t = Math.max(0, Math.min(1, (r - 4) / 6));
     var h = Math.round(t * 120);
-    var s = 75, l = r >= 8 ? 42 : 38;
+    var s = 80, l = 40 + Math.round(Math.sin(t * Math.PI) * 8);
     return 'hsl(' + h + ',' + s + '%,' + l + '%)';
   }
   function rt(r, big, motm) {
@@ -327,7 +327,7 @@
         '<div class="avatar">' + initials(motm.p.name) + '</div><div><div style="font-weight:700;font-size:17px">' +
         (motm.us ? '<a href="' + playerHref(motm.p.id) + '">' + esc(motm.p.name) + '</a>' : esc(motm.p.name)) + '</div>' +
         '<div class="muted small">' + esc(motm.us ? m.us.name : m.them.name) + ' · ' + POS_LABEL[motm.p.pos] + ' · ' + motm.p.goals + ' G · ' + motm.p.assists + ' A</div></div>' +
-        '<div class="ovr">' + rt(motm.p.rating, true) + '</div></div></section>';
+        '<div class="ovr">' + rt(motm.p.rating, true, true) + '</div></div></section>';
     }
     function top(players, us) {
       return players.slice().sort(function (a, b) { return b.rating - a.rating; }).slice(0, 3).map(function (p, i) {
@@ -353,8 +353,12 @@
       var ps = players.filter(function (p) { return pos === 'MID' ? (p.pos === 'MID' || p.pos === 'N/A') : p.pos === pos; });
       if (!ps.length) return;
       h += '<div class="line">' + ps.map(function (p) {
-        var ev = (p.goals ? 'G' + times(p.goals) : '') + (p.goals && p.assists ? ' · ' : '') + (p.assists ? 'A' + times(p.assists) : '') + (p.redCards ? ' RC' : '');
-        var inner = rt(p.rating) + '<span class="nm">' + esc(p.name) + '</span>' + (ev ? '<span class="ev">' + ev + '</span>' : '');
+        var evParts = [];
+        if (p.goals) evParts.push('<span class="ev-icon-wrap">' + ICON_GOAL + (p.goals > 1 ? ' ×' + p.goals : '') + '</span>');
+        if (p.assists) evParts.push('<span class="ev-icon-wrap">' + ICON_ASSIST + (p.assists > 1 ? ' ×' + p.assists : '') + '</span>');
+        if (p.redCards) evParts.push('<span class="ev rc">RC</span>');
+        var ev = evParts.join('');
+        var inner = rt(p.rating, false, p.motm) + '<span class="nm">' + esc(p.name) + '</span>' + (ev ? '<span class="ev">' + ev + '</span>' : '');
         return us ? '<a class="pp" href="' + playerHref(p.id) + '">' + inner + '</a>' : '<div class="pp">' + inner + '</div>';
       }).join('') + '</div>';
     });
@@ -425,7 +429,7 @@
   function playerTable(players, us) {
     return '<div class="tw"><table><thead><tr><th>Player</th><th>Pos</th><th>Rating</th><th title="Minutes on the game clock">Min</th><th>G</th><th>A</th><th>Shots</th><th>Passes</th><th>Pass %</th><th>Tackles</th><th>Saves</th><th title="Red cards">RC</th></tr></thead><tbody>' +
       players.map(function (p) {
-        return '<tr><td class="name">' + (us ? '<a href="' + playerHref(p.id) + '">' + esc(p.name) + '</a>' : esc(p.name)) + '</td><td>' + p.pos + '</td><td>' + rt(p.rating, false, p.motm) + '</td><td>' + mins(p.secondsPlayed || 0) + '</td><td>' + (p.goals > 0 ? '<span class="ev-stat">' + ICON_GOAL + ' ' + p.goals + '</span>' : p.goals) + '</td><td>' + (p.assists > 0 ? '<span class="ev-stat">' + ICON_ASSIST + ' ' + p.assists + '</span>' : p.assists) + '</td><td>' + p.shots + '</td><td>' + p.passesMade + '/' + p.passAttempts + '</td><td>' + pctS(p.passesMade, p.passAttempts) + '</td><td>' + p.tacklesMade + '/' + p.tackleAttempts + '</td><td>' + p.saves + '</td><td>' + p.redCards + '</td></tr>';
+        return '<tr><td class="name">' + (us ? '<a href="' + playerHref(p.id) + '">' + esc(p.name) + '</a>' : esc(p.name)) + '</td><td>' + p.pos + '</td><td>' + rt(p.rating, false, p.motm) + '</td><td>' + mins(p.secondsPlayed || 0) + '</td><td>' + p.goals + '</td><td>' + p.assists + '</td><td>' + p.shots + '</td><td>' + p.passesMade + '/' + p.passAttempts + '</td><td>' + pctS(p.passesMade, p.passAttempts) + '</td><td>' + p.tacklesMade + '/' + p.tackleAttempts + '</td><td>' + p.saves + '</td><td>' + p.redCards + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
   function matchPlayers(m) {
@@ -452,7 +456,7 @@
       if (b === null || b === undefined) return -1;
       return (a - b) * ui.sortDir || x.a.name.localeCompare(y.a.name);
     });
-    var fm = { ga90: f2, pass: function (v) { return v === null ? '–' : Math.round(v) + '%'; }, win: function (v) { return v === null ? '–' : v + '%'; }, rating: function (v, r) { return rt(v || 0, false, r && r.mem && r.mem.motm > 0); }, ovr: function (v) { return v === null ? '–' : v; },
+    var fm = { ga90: f2, pass: function (v) { return v === null ? '–' : Math.round(v) + '%'; }, win: function (v) { return v === null ? '–' : v + '%'; }, rating: function (v) { return rt(v || 0, false, false); }, ovr: function (v) { return v === null ? '–' : v; },
       goals: function (v) { return v > 0 ? '<span class="ev-stat">' + ICON_GOAL + ' ' + v + '</span>' : v === null ? '–' : v; },
       assists: function (v) { return v > 0 ? '<span class="ev-stat">' + ICON_ASSIST + ' ' + v + '</span>' : v === null ? '–' : v; }
     };
