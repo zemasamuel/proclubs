@@ -4,7 +4,7 @@
 
   var N = window.EatmobNormalize;
   var TIME_ZONE = 'America/Chicago';
-  var CREST_BASE = 'https://www.proclubsanalytics.com/api/club-crest/';
+  var CREST_BASE = 'crests/';
   var DAY_STARTS_AT_HOUR = 5;      // games ending before 5 AM count for the previous day
   var MATCH_SECONDS = 5400;        // game-clock seconds in 90 minutes
   var SUB_MARGIN = 60;             // played this many seconds less than the longest-serving player = sub
@@ -81,7 +81,7 @@
     return out + '<path d="M' + pent.join('L') + 'z" fill="#141a18"/>';
   })());
   var ICON_BOOT = svg('i-boot', '<path d="M3.5 5.5h5.2l.9 4.1c.2 1 .9 1.8 1.9 2.1l5.9 1.9c1.9.6 3.1 2.1 3.1 3.9v.5h-17z"/><path d="M5 19.3h2.2v2H5zM10.2 19.3h2.2v2h-2.2zM15.4 19.3h2.2v2h-2.2z"/>');
-  var ICON_SUB = svg('i-sub', '<path d="M7 20V8M7 8l-3.5 3.5M7 8l3.5 3.5" stroke="#1ea55b" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 4v12M17 16l-3.5-3.5M17 16l3.5-3.5" stroke="#d5413a" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>');
+  var ICON_SUB = svg('i-sub', '<circle cx="12" cy="12" r="9" fill="#1ea55b"/><path d="M12 16V9M12 9l-3 3M12 9l3 3" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>');
   function initials(name) { var s = String(name).replace(/[^A-Za-z0-9]/g, ''); return esc((s.slice(0, 2) || '?').toUpperCase()); }
   function resChip(r) { return '<span class="res ' + r + '" title="' + ({ W: 'Win', D: 'Draw', L: 'Loss' }[r]) + '">' + r + '</span>'; }
   function times(n) { return n > 1 ? ' ×' + n : ''; }
@@ -90,7 +90,7 @@
   function stdev(a) { if (a.length < 2) return null; var m = mean(a); return Math.sqrt(mean(a.map(function (v) { return (v - m) * (v - m); }))); }
   function crest(side, size) {
     var id = side && /^\d+$/.test(side.crest || '') ? side.crest : '';
-    var img = id ? '<img src="' + CREST_BASE + id + '" alt="" loading="lazy" decoding="async" onerror="this.parentNode.classList.add(\'bad\')">' : '';
+    var img = id ? '<img src="' + CREST_BASE + id + '.png" alt="" loading="lazy" decoding="async" onerror="this.parentNode.classList.add(\'bad\')">' : '';
     return '<span class="cr s' + size + (id ? '' : ' bad') + '" aria-hidden="true">' + img +
       '<span class="fb">' + initials(side && side.name || '?') + '</span></span>';
   }
@@ -176,10 +176,15 @@
     return t;
   }
   function record(t) { return t.W + 'W ' + t.D + 'D ' + t.L + 'L'; }
-  function isSub(p, m) { return m.full > 0 && (p.secondsPlayed || 0) < m.full - SUB_MARGIN; }
+  function isSub(p, m) { return m.full > 0 && (p.secondsPlayed || 0) > 0 && (p.secondsPlayed || 0) < m.full - SUB_MARGIN; }
+  function subOnMin(p, m) { return Math.round((m.full - (p.secondsPlayed || 0)) / 60); }
   function minsCell(p, m) {
     var n = mins(p.secondsPlayed || 0);
-    return isSub(p, m) ? '<span class="submin" title="Sub: played ' + n + ' of ' + mins(m.full) + ' min">' + ICON_SUB + n + '</span>' : n;
+    if (isSub(p, m)) {
+      var on = subOnMin(p, m);
+      return '<span class="submin" title="Subbed on at ' + on + '\'' + '">' + ICON_SUB + n + '</span>';
+    }
+    return n;
   }
   function minApps() {
     var most = Math.max.apply(null, idx.players.map(function (a) { return a.apps; }));
@@ -371,7 +376,7 @@
   function pitchPlayer(p, m, us) {
     var left = (p.redCards ? '<i class="rc" title="Red card"></i>' : '') + evIcons(ICON_BOOT, p.assists, 'as');
     var inner = '<span class="av">' + initials(p.name) +
-      (isSub(p, m) ? '<span class="sub" title="Sub: played ' + mins(p.secondsPlayed || 0) + ' of ' + mins(m.full) + ' min">' + ICON_SUB + mins(p.secondsPlayed || 0) + '′</span>' : '') +
+      (isSub(p, m) ? '<span class="sub" title="Subbed on at ' + subOnMin(p, m) + '\'">' + ICON_SUB + subOnMin(p, m) + '′</span>' : '') +
       rt(p.rating, false, p.motm) +
       (left ? '<span class="evs l"' + (p.assists ? ' title="' + p.assists + ' A"' : '') + '>' + left + '</span>' : '') +
       (p.goals ? '<span class="evs" title="' + p.goals + ' G">' + evIcons(ICON_BALL, p.goals, 'gl') + '</span>' : '') +
