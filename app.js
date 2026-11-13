@@ -16,7 +16,7 @@
 
   var view = document.getElementById('view');
   var memoryImport = null;
-  var ui = { calOpen: false, calMonth: null, tab: 'facts', squadMode: 'tracked', sortK: 'rating', sortDir: -1, importMsg: null, importDraft: '', cmp: { tpl: 'fwd', sel: null } };
+  var ui = { calOpen: false, calMonth: null, tab: 'facts', squadMode: 'tracked', sortK: 'rating', sortDir: -1, importMsg: null, importDraft: '', cmp: { tpl: 'fwd', sel: null }, matchSort: { k: 'rating', dir: -1 }, per90Sort: { k: 'mins', dir: -1 } };
   var MAX_COMPARE = 4;
   var db, idx;
 
@@ -200,9 +200,9 @@
     var avg = m.stats.us.avgRating;
     return '<a class="mrow" href="' + matchHref(m) + '">' +
       '<span class="t">' + esc(fmtTime(m.ts)) + '</span>' + resChip(m.result) +
-      '<span class="home"><span class="n">' + esc(m.us.name) + '</span>' + crest(m.us, 24) + '</span>' +
+      '<span class="home">' + crest(m.us, 24) + '</span>' +
       '<span class="sc">' + m.us.goals + ' – ' + m.them.goals + '</span>' +
-      '<span class="away">' + crest(m.them, 24) + '<span class="n">' + esc(m.them.name) + '</span>' + (m.dnf ? '<span class="tag" title="A team quit before full time">DNF</span>' : '') + '</span>' +
+      '<span class="away">' + crest(m.them, 24) + (m.dnf ? '<span class="tag" title="A team quit before full time">DNF</span>' : '') + '</span>' +
       '<span class="best" title="Team average rating">' + (avg > 0 ? rt(avg) : '') + '</span></a>';
   }
   function notices() { return db.sample ? '<div class="banner"><b>Sample data.</b> Real games appear after the first fetch.</div>' : ''; }
@@ -320,7 +320,7 @@
     var h = '<div class="row" style="justify-content:space-between"><a class="btn" href="#day-' + m.day + '">‹ ' + esc(fmtDayShort(m.day)) + '</a>' +
       '<div class="row"><a class="btn" ' + (prev ? 'href="' + matchHref(prev) + '"' : 'aria-disabled="true"') + '>‹ Previous</a><a class="btn" ' + (next ? 'href="' + matchHref(next) + '"' : 'aria-disabled="true"') + '>Next ›</a></div></div>';
 
-    h += '<section class="card"><div class="mh"><div class="comp">' + TYPE_LABEL[m.type] + ' · ' + esc(fmtDayLong(zoneKey(m.ts))) + ' · ended ' + esc(fmtTime(m.ts)) + ' CT</div>' +
+    h += '<section class="card"><div class="mh"><div class="comp">' + TYPE_LABEL[m.type] + ' · ' + esc(fmtDayLong(zoneKey(m.ts))) + ' · ' + esc(fmtTime(m.ts)) + '</div>' +
       '<div class="board"><div class="team">' + crest(m.us, 64) + '<span>' + esc(m.us.name) + '</span></div><div class="score">' + m.us.goals + ' – ' + m.them.goals + '</div><div class="team">' + crest(m.them, 64) + '<span>' + esc(m.them.name) + '</span></div></div>' +
       '<div class="row" style="justify-content:center">' + resChip(m.result) + '<span class="muted small">' + (m.dnf ? 'Ended early (DNF)' : 'Full time') + '</span></div>' +
       '<div class="scorers"><div>' + scorerList(m.players.us, m.us.goals) + '</div><div>' + scorerList(m.players.them, m.them.goals) + '</div></div></div>';
@@ -358,7 +358,7 @@
       '<section class="card"><div class="card-h"><h2>Top rated · ' + esc(m.them.name) + '</h2></div><div class="plist">' + top(m.players.them, false) + '</div></section></div>';
     h += '<section class="card"><div class="card-h"><h2>Match facts</h2></div><div class="card-b"><dl class="kv">' +
       '<dt>Competition</dt><dd>' + TYPE_LABEL[m.type] + '</dd>' +
-      '<dt>Finished</dt><dd>' + esc(new Date(m.ts * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: TIME_ZONE })) + ' CT</dd>' +
+      '<dt>Finished</dt><dd>' + esc(new Date(m.ts * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: TIME_ZONE })) + '</dd>' +
       '<dt>Players</dt><dd>' + m.stats.us.humans + ' v ' + m.stats.them.humans + '</dd>' +
       '<dt>Team rating</dt><dd>' + f2(m.stats.us.avgRating) + ' v ' + f2(m.stats.them.avgRating) + '</dd>' +
       '<dt>Match ID</dt><dd>' + esc(m.id) + '</dd></dl></div></section>';
@@ -396,30 +396,32 @@
   // EA's shot count is sometimes below a player's goals, so a goal always counts as a shot.
   function tries(p) { return Math.max(p.shots, p.goals); }
   function triesOf(players) { return players.reduce(function (s, p) { return s + tries(p); }, 0); }
-  function shotTeam(side, players, us, teamGoals) {
+  function shotTeamTable(side, players, us, teamGoals) {
     var sh = players.filter(function (p) { return tries(p) > 0; })
       .sort(function (a, b) { return tries(b) - tries(a) || b.goals - a.goals || b.rating - a.rating; });
     var total = 0, goals = 0;
     players.forEach(function (p) { total += tries(p); goals += p.goals; });
     var other = Math.max(0, teamGoals - goals);
-    var h = '<section class="card"><div class="card-h shot-h"><h2>' + crest(side, 24) + '<span>' + esc(side.name) + '</span></h2><span class="muted small">' +
-      total + (total === 1 ? ' shot' : ' shots') + ' · ' + goals + (goals === 1 ? ' goal' : ' goals') + ' · ' + (total ? Math.round(goals / total * 100) + '% conversion' : 'no shots') + '</span></div>';
-    if (!sh.length) return h + '<div class="card-b muted">No shots.</div></section>';
-    h += '<div class="shots">' + sh.map(function (p) {
-      var t = tries(p), miss = t - p.goals, dots = '', i;
-      for (i = 0; i < p.goals; i++) dots += '<i class="sd goal"></i>';
-      for (i = 0; i < miss; i++) dots += '<i class="sd"></i>';
-      var nm = us ? '<a href="' + playerHref(p.id) + '">' + esc(p.name) + '</a>' : esc(p.name);
-      return '<div class="srow"><span class="nm">' + nm + '<small>' + POS_LABEL[p.pos] + '</small></span><span class="dots2" role="img" aria-label="' + t + ' shots, ' + p.goals + ' goals">' + dots + '</span>' +
-        '<span class="sv"><b>' + t + '</b> ' + (t === 1 ? 'shot' : 'shots') + (p.goals ? ' · <b>' + p.goals + '</b> G' : '') + '</span></div>';
-    }).join('') + '</div>';
+    var conv = total ? Math.round(goals / total * 100) + '%' : '—';
+    var h = '<section class="card"><div class="card-h shot-h"><h2>' + crest(side, 24) + '<span>' + esc(side.name) + '</span></h2>' +
+      '<span class="muted small">' + total + ' shots · ' + goals + ' goals · ' + conv + ' conv.</span></div>';
+    if (!sh.length) return h + '<div class="card-b muted">No shots recorded.</div></section>';
+    h += '<div class="tw"><table class="shottable"><thead><tr><th>Player</th><th>Pos</th><th>Shots</th><th>Goals</th><th>Conv %</th><th>Rating</th></tr></thead><tbody>' +
+      sh.map(function (p) {
+        var t = tries(p);
+        var nm = us ? '<a href="' + playerHref(p.id) + '">' + esc(p.name) + '</a>' : esc(p.name);
+        return '<tr><td class="name">' + nm + '</td><td>' + POS_LABEL[p.pos] + '</td><td>' + t + '</td><td>' + p.goals + '</td><td>' + pctS(p.goals, t) + '</td><td>' + rt(p.rating, false, p.motm) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
     if (other > 0) h += '<div class="card-b small muted">+' + other + ' from AI teammates, own goals or forfeit</div>';
     return h + '</section>';
   }
   function matchShots(m) {
-    return '<section class="card"><div class="card-b">' + statBar('Shots', triesOf(m.players.us), triesOf(m.players.them)) +
-      '<div class="legend small muted"><span><i class="sd goal"></i> goal</span><span><i class="sd"></i> no goal</span></div></div></section>' +
-      shotTeam(m.us, m.players.us, true, m.us.goals) + shotTeam(m.them, m.players.them, false, m.them.goals);
+    var us = triesOf(m.players.us), them = triesOf(m.players.them), tot = us + them;
+    var bar = '<div class="shot-bar-wrap"><div class="shot-bar-labels"><span>' + esc(m.us.name) + ' <b>' + us + '</b></span><span><b>' + them + '</b> ' + esc(m.them.name) + '</span></div>' +
+      '<div class="shot-bar"><div class="shot-bar-us" style="width:' + (tot ? (us / tot * 100).toFixed(1) : 50) + '%"></div></div></div>';
+    return '<section class="card"><div class="card-b">' + bar + '</div></section>' +
+      shotTeamTable(m.us, m.players.us, true, m.us.goals) +
+      shotTeamTable(m.them, m.players.them, false, m.them.goals);
   }
 
   function statBar(label, a, b, fmt) {
@@ -445,11 +447,30 @@
       statBar('Players', u.humans, o.humans) + '</div></section>';
   }
 
+  var PT_COLS = [
+    { k: 'rating', label: 'Rating', v: function (p) { return p.rating || 0; } },
+    { k: 'mins',   label: 'Min',    v: function (p, m) { return isSub(p, m) ? minsPlayed(p, m) : mins(p.secondsPlayed || 0); } },
+    { k: 'goals',  label: 'G',      v: function (p) { return p.goals; } },
+    { k: 'assists',label: 'A',      v: function (p) { return p.assists; } },
+    { k: 'shots',  label: 'Shots',  v: function (p) { return tries(p); } },
+    { k: 'passpc', label: 'Pass %', v: function (p) { return pct(p.passesMade, p.passAttempts) || 0; } },
+    { k: 'tackles',label: 'Tackles',v: function (p) { return p.tacklesMade; } },
+    { k: 'saves',  label: 'Saves',  v: function (p) { return p.saves; } },
+    { k: 'rc',     label: 'RC',     v: function (p) { return p.redCards; } }
+  ];
   function playerTable(m, us) {
-    var players = us ? m.players.us : m.players.them;
-    return '<div class="tw"><table><thead><tr><th>Player</th><th>Pos</th><th>Rating</th><th>Min</th><th>G</th><th>A</th><th>Shots</th><th>Passes</th><th>Pass %</th><th>Tackles</th><th>Saves</th><th title="Red cards">RC</th></tr></thead><tbody>' +
+    var sk = ui.matchSort.k, sd = ui.matchSort.dir;
+    var col = PT_COLS.filter(function (c) { return c.k === sk; })[0] || PT_COLS[0];
+    var players = (us ? m.players.us : m.players.them).slice().sort(function (a, b) {
+      return (col.v(b, m) - col.v(a, m)) * sd;
+    });
+    function th(c) {
+      var on = c.k === sk;
+      return '<th><button data-act="match-sort" data-k="' + c.k + '" class="' + (on ? 'on' : '') + '">' + c.label + (on ? (sd < 0 ? ' ↓' : ' ↑') : '') + '</button></th>';
+    }
+    return '<div class="tw"><table><thead><tr><th>Player</th><th>Pos</th>' + PT_COLS.map(th).join('') + '</tr></thead><tbody>' +
       players.map(function (p) {
-        return '<tr><td class="name">' + (us ? '<a href="' + playerHref(p.id) + '">' + esc(p.name) + '</a>' : esc(p.name)) + '</td><td>' + p.pos + '</td><td>' + rt(p.rating, false, p.motm) + '</td><td>' + minsCell(p, m) + '</td><td>' + p.goals + '</td><td>' + p.assists + '</td><td>' + tries(p) + '</td><td>' + p.passesMade + '/' + p.passAttempts + '</td><td>' + pctS(p.passesMade, p.passAttempts) + '</td><td>' + p.tacklesMade + '/' + p.tackleAttempts + '</td><td>' + p.saves + '</td><td>' + p.redCards + '</td></tr>';
+        return '<tr><td class="name">' + (us ? '<a href="' + playerHref(p.id) + '">' + esc(p.name) + '</a>' : esc(p.name)) + '</td><td>' + p.pos + '</td><td>' + rt(p.rating, false, p.motm) + '</td><td>' + minsCell(p, m) + '</td><td>' + p.goals + '</td><td>' + p.assists + '</td><td>' + tries(p) + '</td><td>' + pctS(p.passesMade, p.passAttempts) + '</td><td>' + p.tacklesMade + '/' + p.tackleAttempts + '</td><td>' + p.saves + '</td><td>' + p.redCards + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
   function matchPlayers(m) {
@@ -629,7 +650,7 @@
     { k: 'fwd',  name: 'Forward',          axes: ['g90', 's90', 'a90', 'pass', 'conv', 'gi'],           pos: 'FWD' },
     { k: 'mid',  name: 'Midfield',          axes: ['g90', 'a90', 'p90', 't90', 'pressing_rate', 'pass'], pos: 'MID' },
     { k: 'def',  name: 'Defence',           axes: ['t90', 'pressing_rate', 'tpct', 'pass', 'p90', 'cs'], pos: 'DEF' },
-    { k: 'wide', name: 'Wide / wing-back',  axes: ['g90', 's90', 'a90', 't90', 'pressing_rate', 'pass'], pos: null }
+    { k: 'wide', name: 'Wing-back',  axes: ['g90', 's90', 'a90', 't90', 'pressing_rate', 'pass'], pos: null }
   ];
   // Share of the other players in the pool this value beats. Ties beat nobody; inv flips it for lower-is-better stats.
   function percentile(v, vals, inv) {
@@ -822,24 +843,34 @@
         return '<tr><td class="name">' + resChip(r) + '</td><td>' + b.n + '</td><td>' + (b.rs.length ? rt(mean(b.rs)) : '–') + '</td><td>' + (b.n ? f1(b.gf / b.n) + '–' + f1(b.ga / b.n) : '–') + '</td></tr>';
       }).join('') + '</tbody></table></div></section></div>';
 
-    var posRows = ['FWD', 'MID', 'DEF', 'GK'].filter(function (p) { return pos[p][0] + pos[p][1] > 0; }).map(function (p) {
-      return '<div class="cmp"><span>' + POS_LABEL[p] + 's</span><span class="track"><i style="width:' + (humanGoals ? Math.max(2, pos[p][0] / humanGoals * 100) : 2) + '%"></i></span><span class="r"><b>' + pos[p][0] + ' G</b> · ' + pos[p][1] + ' A</span></div>';
-    }).join('');
-    var other = Math.max(0, ourGoals - humanGoals);
-    h += '<div class="grid2"><section class="card"><div class="card-h"><h2>Goals by position</h2></div><div class="card-b">' + (posRows || '<p class="muted">No goals yet.</p>') +
-      (other ? '<p class="muted small" style="margin-top:6px">+' + other + ' from AI teammates, own goals or forfeit</p>' : '') + '</div></section>';
-    h += '<section class="card"><div class="card-h"><h2>When we play</h2><span class="muted small">Central Time</span></div><div class="tw"><table><thead><tr><th>Time of day</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Win %</th></tr></thead><tbody>' +
+    h += '<section class="card"><div class="card-h"><h2>When we play</h2></div><div class="tw"><table><thead><tr><th>Time of day</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Win %</th></tr></thead><tbody>' +
       parts.filter(function (p) { return p.ms.length; }).map(function (p) {
         var x = tally(p.ms);
         return '<tr><td class="name">' + p.d[0] + '<small>' + p.d[1] + '</small></td><td>' + x.P + '</td><td>' + x.W + '</td><td>' + x.D + '</td><td>' + x.L + '</td><td>' + pctS(x.W, x.P) + '</td></tr>';
-      }).join('') + '</tbody></table></div></section></div>';
+      }).join('') + '</tbody></table></div></section>';
     return h;
   }
 
+  var P90_COLS = [
+    { k: 'mins',    label: 'Min',     v: function (a) { return mins(a.seconds); } },
+    { k: 'g90',     label: 'G /90',   v: function (a) { return per90(a.goals, a.seconds) || 0; } },
+    { k: 'a90',     label: 'A /90',   v: function (a) { return per90(a.assists, a.seconds) || 0; } },
+    { k: 'sh90',    label: 'Shots /90',v: function (a) { return per90(a.tries, a.seconds) || 0; } },
+    { k: 'conv',    label: 'Conv %',  v: function (a) { return pct(a.goals, a.tries) || 0; } },
+    { k: 'passpc',  label: 'Pass %',  v: function (a) { return pct(a.passesMade, a.passAttempts) || 0; } },
+    { k: 'tack90',  label: 'Tackles /90', v: function (a) { return per90(a.tacklesMade, a.seconds) || 0; } },
+    { k: 'rating',  label: 'Rating',  v: function (a) { return avgRating(a) || 0; } }
+  ];
   function squadPer90() {
-    var rows = idx.players.filter(function (a) { return a.apps > 0; }).sort(function (x, y) { return y.seconds - x.seconds; });
+    var sk = ui.per90Sort.k, sd = ui.per90Sort.dir;
+    var col = P90_COLS.filter(function (c) { return c.k === sk; })[0] || P90_COLS[0];
+    var rows = idx.players.filter(function (a) { return a.apps > 0; }).sort(function (x, y) { return (col.v(y) - col.v(x)) * sd; });
     if (!rows.length) return '';
-    return '<section class="card"><div class="card-h"><h2>Squad per 90</h2></div><div class="tw"><table><thead><tr><th>Player</th><th>Min</th><th>G</th><th>A</th><th>Shots</th><th>Conv %</th><th>Pass %</th><th>Tackles</th><th>Rating</th></tr></thead><tbody>' +
+    function th(c) {
+      var on = c.k === sk;
+      return '<th><button data-act="per90-sort" data-k="' + c.k + '" class="' + (on ? 'on' : '') + '">' + c.label + (on ? (sd < 0 ? ' ↓' : ' ↑') : '') + '</button></th>';
+    }
+    return '<section class="card"><div class="card-h"><h2>Squad per 90</h2></div><div class="tw"><table><thead><tr><th>Player</th>' + P90_COLS.map(th).join('') + '</tr></thead><tbody>' +
       rows.map(function (a) {
         return '<tr><td class="name"><a href="' + playerHref(a.id) + '">' + esc(a.name) + '</a><small>' + games(a.apps) + '</small></td><td>' + mins(a.seconds) + '</td><td>' + f2(per90(a.goals, a.seconds)) + '</td><td>' + f2(per90(a.assists, a.seconds)) + '</td><td>' + f1(per90(a.tries, a.seconds)) + '</td><td>' + pctS(a.goals, a.tries) + '</td><td>' + pctS(a.passesMade, a.passAttempts) + '</td><td>' + f1(per90(a.tacklesMade, a.seconds)) + '</td><td>' + rt(avgRating(a) || 0) + '</td></tr>';
       }).join('') + '</tbody></table></div></section>';
@@ -963,7 +994,6 @@
     if (/^compare(-[A-Za-z0-9]+)?$/.test(hash)) { setNav('compare'); return viewCompare(); }
     if (hash === 'squad') { setNav('squad'); return viewSquad(); }
     if (hash === 'stats') { setNav('stats'); return viewStats(); }
-    if (hash === 'data') { setNav('data'); return viewData(); }
     if ((m = /^match-([A-Za-z0-9]+)$/.exec(hash)) && idx.byId[m[1]]) { setNav('matches'); return viewMatch(idx.byId[m[1]]); }
     if ((m = /^player-([A-Za-z0-9]+)$/.exec(hash)) && idx.bySlug[m[1]]) { setNav('squad'); return viewPlayer(idx.bySlug[m[1]]); }
     setNav('matches');
@@ -989,6 +1019,8 @@
     }
     else if (act === 'squad-mode') ui.squadMode = el.getAttribute('data-mode');
     else if (act === 'sort') { var k = el.getAttribute('data-k'); if (ui.sortK === k) ui.sortDir = -ui.sortDir; else { ui.sortK = k; ui.sortDir = -1; } }
+    else if (act === 'match-sort') { var mk = el.getAttribute('data-k'); if (ui.matchSort.k === mk) ui.matchSort.dir = -ui.matchSort.dir; else { ui.matchSort.k = mk; ui.matchSort.dir = -1; } }
+    else if (act === 'per90-sort') { var pk = el.getAttribute('data-k'); if (ui.per90Sort.k === pk) ui.per90Sort.dir = -ui.per90Sort.dir; else { ui.per90Sort.k = pk; ui.per90Sort.dir = -1; } }
     else if (act === 'import') doImport();
     else if (act === 'import-clear') { writeImport(null); ui.importMsg = { ok: true, text: 'Removed.' }; reload(); }
     render();

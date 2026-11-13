@@ -296,6 +296,15 @@ th button.on { color: var(--accent); }
 .radar .ser { fill: var(--c); fill-opacity: .15; stroke: var(--c); stroke-width: 2.5; stroke-linejoin: round; }
 .radar .pt { fill: var(--c); stroke: var(--surface); stroke-width: 2; }
 
+/* shots rework */
+.shot-bar-wrap { padding: 4px 0 8px; }
+.shot-bar-labels { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+.shot-bar-labels b { font-weight: 700; }
+.shot-bar { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.shot-bar-us { height: 100%; background: var(--accent); border-radius: 999px 0 0 999px; min-width: 4px; transition: width .3s; }
+.shottable td, .shottable th { text-align: center; }
+.shottable td:first-child, .shottable th:first-child { text-align: left; }
+
 /* club stats */
 .tiles.t3 { grid-template-columns: repeat(3, 1fr); }
 .vs td.better { font-weight: 700; color: var(--accent); }
