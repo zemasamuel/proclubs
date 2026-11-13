@@ -177,14 +177,13 @@
   }
   function record(t) { return t.W + 'W ' + t.D + 'D ' + t.L + 'L'; }
   function isSub(p, m) { return m.full > 0 && (p.secondsPlayed || 0) > 0 && (p.secondsPlayed || 0) < m.full - SUB_MARGIN; }
-  function subOnMin(p, m) { return Math.round((m.full - (p.secondsPlayed || 0)) / 60); }
+  // Note: EA stores secondsPlayed as seconds from kick-off when subbed on (not time played).
+  // So secondsPlayed=702 means subbed on at 12', played (full-702) seconds.
+  function subOnMin(p) { return Math.round((p.secondsPlayed || 0) / 60); }
+  function minsPlayed(p, m) { return mins(m.full - (p.secondsPlayed || 0)); }
   function minsCell(p, m) {
-    var n = mins(p.secondsPlayed || 0);
-    if (isSub(p, m)) {
-      var on = subOnMin(p, m);
-      return '<span class="submin" title="Subbed on at ' + on + '\'' + '">' + ICON_SUB + n + '</span>';
-    }
-    return n;
+    var n = isSub(p, m) ? minsPlayed(p, m) : mins(p.secondsPlayed || 0);
+    return isSub(p, m) ? '<span class="submin" title="Subbed on at ' + subOnMin(p) + '\'">' + ICON_SUB + n + '</span>' : n;
   }
   function minApps() {
     var most = Math.max.apply(null, idx.players.map(function (a) { return a.apps; }));
@@ -376,7 +375,7 @@
   function pitchPlayer(p, m, us) {
     var left = (p.redCards ? '<i class="rc" title="Red card"></i>' : '') + evIcons(ICON_BOOT, p.assists, 'as');
     var inner = '<span class="av">' + initials(p.name) +
-      (isSub(p, m) ? '<span class="sub" title="Subbed on at ' + subOnMin(p, m) + '\'">' + ICON_SUB + subOnMin(p, m) + '′</span>' : '') +
+      (isSub(p, m) ? '<span class="sub" title="Subbed on at ' + subOnMin(p) + '\'">' + ICON_SUB + subOnMin(p) + '′</span>' : '') +
       rt(p.rating, false, p.motm) +
       (left ? '<span class="evs l"' + (p.assists ? ' title="' + p.assists + ' A"' : '') + '>' + left + '</span>' : '') +
       (p.goals ? '<span class="evs" title="' + p.goals + ' G">' + evIcons(ICON_BALL, p.goals, 'gl') + '</span>' : '') +
