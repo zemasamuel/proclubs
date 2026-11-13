@@ -8,11 +8,11 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CRESTS_DIR = join(ROOT, 'crests');
-const EA_CREST = id => `https://eafc24.content.easports.com/img/user_avatar/FC25/default/l${id}.png`;
+const EA_CREST = id => `https://www.proclubsanalytics.com/api/club-crest/${id}`;
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-  'Referer': 'https://www.ea.com/',
-  'Origin': 'https://www.ea.com'
+  'Referer': 'https://www.proclubsanalytics.com/',
+  'Origin': 'https://www.proclubsanalytics.com'
 };
 
 await mkdir(CRESTS_DIR, { recursive: true });
