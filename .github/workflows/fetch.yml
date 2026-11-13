@@ -33,5 +33,6 @@ jobs:
             echo "No new data."
           else
             git commit -m "Update match data and crests"
+            git pull --rebase origin main
             git push
           fi
