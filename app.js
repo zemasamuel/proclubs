@@ -88,10 +88,10 @@
   function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
   function mean(a) { return a.length ? a.reduce(function (s, v) { return s + v; }, 0) / a.length : null; }
   function stdev(a) { if (a.length < 2) return null; var m = mean(a); return Math.sqrt(mean(a.map(function (v) { return (v - m) * (v - m); }))); }
-  // Falls back to the club's initials when the image fails (see the error listener at the bottom).
   function crest(side, size) {
     var id = side && /^\d+$/.test(side.crest || '') ? side.crest : '';
-    return '<span class="cr s' + size + (id ? '' : ' bad') + '" aria-hidden="true">' + (id ? '<img src="' + CREST_BASE + id + '.png" alt="" loading="lazy" decoding="async">' : '') +
+    var img = id ? '<img src="' + CREST_BASE + id + '.png" alt="" loading="lazy" decoding="async" onerror="this.parentNode.classList.add(\'bad\')">' : '';
+    return '<span class="cr s' + size + (id ? '' : ' bad') + '" aria-hidden="true">' + img +
       '<span class="fb">' + initials(side && side.name || '?') + '</span></span>';
   }
 
@@ -306,8 +306,8 @@
   function scorerList(players, teamGoals) {
     var parts = [], sum = 0;
     players.filter(function (p) { return p.goals > 0; }).sort(function (a, b) { return b.goals - a.goals; })
-      .forEach(function (p) { sum += p.goals; parts.push(esc(p.name) + times(p.goals)); });
-    if (teamGoals > sum) parts.push('<span title="AI teammates, own goals, or goals awarded for a forfeit">Other' + times(teamGoals - sum) + '</span>');
+      .forEach(function (p) { sum += p.goals; parts.push('<b>' + esc(p.name) + '</b>' + (p.goals > 1 ? '<span class="muted"> ×' + p.goals + '</span>' : '')); });
+    if (teamGoals > sum) parts.push('<span class="muted" title="AI teammates, own goals, or goals awarded for a forfeit">Other' + (teamGoals - sum > 1 ? ' ×' + (teamGoals - sum) : '') + '</span>');
     return parts.join('<br>');
   }
 
@@ -363,7 +363,7 @@
 
   /* Lineup marker: rating top right, sub top left, goals bottom right, assists and red card bottom left. */
   function evIcons(icon, n, cls) {
-    if (n > 3) return '<i class="e ' + cls + '">' + icon + '<b>' + n + '</b></i>';
+    if (n > 4) return '<i class="e ' + cls + '">' + icon + '<b>' + n + '</b></i>';
     var out = '';
     while (n-- > 0) out += '<i class="e ' + cls + '">' + icon + '</i>';
     return out;
