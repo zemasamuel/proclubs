@@ -1052,7 +1052,6 @@
   var themeBtn = document.getElementById('themeToggle');
   function applyTheme(dark) {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-    if (themeBtn) themeBtn.textContent = dark ? '☀️' : '🌙';
   }
   var savedTheme = localStorage.getItem('eatmob-theme');
   var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
