@@ -4,7 +4,7 @@ on:
   schedule:
     # Every 5 minutes is the most GitHub allows. It is a request, not a promise: GitHub
     # often starts scheduled runs late or skips them, so real gaps can be much longer.
-    - cron: "2-59/5 * * * *"
+    - cron: "17,47 * * * *"
   workflow_dispatch:
 
 # Nothing is allowed by default; the one job below asks for the single permission it needs.
