@@ -31,7 +31,7 @@
     matchSort: { k: 'rating', dir: -1 },
     per90Sort: { k: 'mins', dir: -1 }
   };
-  var MAX_COMPARE = 4;
+  var MAX_COMPARE = 99;
   var db, idx;
 
   /* ---------- helpers ---------- */

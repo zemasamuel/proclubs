@@ -14,6 +14,7 @@
   --pitch-a: #2f8f5b;
   --pitch-b: #2a8454;
   --c1: #2f6bff; --c2: #e6257a; --c3: #0b9a5a; --c4: #d97f00; --c5: #8a4fe0;
+  --c6: #00b4d8; --c7: #ff6b35; --c8: #06d6a0; --c9: #ef233c; --c10: #f72585; --c11: #7b2d8b;
   --shadow: 0 1px 2px rgba(20, 26, 24, .06);
   --font-display: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
   --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -26,6 +27,7 @@
     --win: #2bcb86; --draw: #8b9692; --loss: #f0655d;
     --pitch-a: #1f6a43; --pitch-b: #1b603c;
     --c1: #6a96ff; --c2: #ff63a2; --c3: #2bcb86; --c4: #f5a524; --c5: #b08cf7;
+    --c6: #38d4f5; --c7: #ff8c5a; --c8: #00f0b5; --c9: #ff4d6d; --c10: #ff4de8; --c11: #c77dff;
     --shadow: none;
     color-scheme: dark;
   }
@@ -36,6 +38,7 @@
   --win: #2bcb86; --draw: #8b9692; --loss: #f0655d;
   --pitch-a: #1f6a43; --pitch-b: #1b603c;
   --c1: #6a96ff; --c2: #ff63a2; --c3: #2bcb86; --c4: #f5a524; --c5: #b08cf7;
+  --c6: #38d4f5; --c7: #ff8c5a; --c8: #00f0b5; --c9: #ff4d6d; --c10: #ff4de8; --c11: #c77dff;
   --shadow: none;
   color-scheme: dark;
 }
@@ -404,7 +407,8 @@ th button.on { color: var(--accent); }
 .cmp .r b { color: var(--text); }
 
 /* compare */
-.s0 { --c: var(--c1); } .s1 { --c: var(--c2); } .s2 { --c: var(--c3); } .s3 { --c: var(--c4); } .s4 { --c: var(--c5); }
+.s0  { --c: var(--c1); } .s1  { --c: var(--c2); } .s2  { --c: var(--c3); } .s3  { --c: var(--c4); } .s4  { --c: var(--c5); }
+.s5  { --c: var(--c6); } .s6  { --c: var(--c7); } .s7  { --c: var(--c8); } .s8  { --c: var(--c9); } .s9  { --c: var(--c10); } .s10 { --c: var(--c11); }
 .pickrow { display: flex; flex-wrap: wrap; gap: 8px; }
 .pchip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; font-weight: 600; font-size: 13px; }
 .pchip .sw { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--muted); }
@@ -434,10 +438,9 @@ th button.on { color: var(--accent); }
 .cmp-label small { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
 .cmp-val { text-align: center; font-size: 15px; font-weight: 500; color: var(--muted); }
 .cmp-win { font-weight: 700; font-size: 16px; }
-.s0c { color: var(--c1); }
-.s1c { color: var(--c2); }
-.s2c { color: var(--c3); }
-.s3c { color: var(--c4); }
+.s0c  { color: var(--c1); } .s1c  { color: var(--c2); } .s2c  { color: var(--c3); } .s3c  { color: var(--c4); }
+.s4c  { color: var(--c5); } .s5c  { color: var(--c6); } .s6c  { color: var(--c7); } .s7c  { color: var(--c8); }
+.s8c  { color: var(--c9); } .s9c  { color: var(--c10); } .s10c { color: var(--c11); }
 .sr { position: absolute; left: -9999px; }
 .radar { width: 100%; max-width: 640px; height: auto; display: block; margin: 0 auto; }
 .radar .ring { fill: none; stroke: var(--line); stroke-width: 1; }
