@@ -798,8 +798,10 @@
     return s + '</svg>';
   }
 
-  /* Axes shown on the radar — a balanced overview of key stats */
-  var CMP_RADAR_AXES = ['rating', 'ga90', 'g90', 'a90', 'pass', 't90', 'motm'];
+  /* Radar axes — 6-point hexagon, opposites pair meaningfully:
+     Rating ↔ Pass%  |  G/90 ↔ Shot conv%  |  A/90 ↔ Tackles/90
+     Clockwise from top: Rating, G/90, A/90, Pass%, Tackles/90, Shot conv% */
+  var CMP_RADAR_AXES = ['rating', 'g90', 'a90', 'pass', 't90', 'conv'];
   /* Full stat list shown below the radar, grouped by section.
    * String items reference CMP keys; object items are section headers. */
   var CMP_ALL_STATS = [
