@@ -24,7 +24,6 @@ function normPlayer(id, r) {
     tacklesMade: num(r.tacklesmade),
     tackleAttempts: num(r.tackleattempts),
     saves: num(r.saves),
-    redCards: num(r.redcards),
     goalsConceded: num(r.goalsconceded),
     cleanSheet: num(r.cleansheetsany) > 0,
     motm: num(r.mom) > 0,
@@ -35,12 +34,12 @@ function normPlayer(id, r) {
 // Team totals add up the human players only; EA does not report AI teammates.
 function teamTotals(players) {
   const t = { shots: 0, passesMade: 0, passAttempts: 0, tacklesMade: 0, tackleAttempts: 0,
-              saves: 0, redCards: 0, playerGoals: 0, humans: players.length, avgRating: 0 };
+              saves: 0, playerGoals: 0, humans: players.length, avgRating: 0 };
   let sum = 0, rated = 0;
   for (const p of players) {
     t.shots += p.shots; t.passesMade += p.passesMade; t.passAttempts += p.passAttempts;
     t.tacklesMade += p.tacklesMade; t.tackleAttempts += p.tackleAttempts;
-    t.saves += p.saves; t.redCards += p.redCards; t.playerGoals += p.goals;
+    t.saves += p.saves; t.playerGoals += p.goals;
     if (p.rating > 0) { sum += p.rating; rated++; }
   }
   t.avgRating = rated ? Math.round(sum / rated * 100) / 100 : 0;
@@ -108,7 +107,7 @@ function normalizeMembers(raw) {
       ratingAve: num(m.ratingAve), motm: num(m.manOfTheMatch), winRate: num(m.winRate),
       shotSuccessRate: num(m.shotSuccessRate), passesMade: num(m.passesMade), passSuccessRate: num(m.passSuccessRate),
       tacklesMade: num(m.tacklesMade), tackleSuccessRate: num(m.tackleSuccessRate),
-      cleanSheets: num(m.cleanSheetsDef) + num(m.cleanSheetsGK), redCards: num(m.redCards)
+      cleanSheets: num(m.cleanSheetsDef) + num(m.cleanSheetsGK)
     };
   }
   return out;
