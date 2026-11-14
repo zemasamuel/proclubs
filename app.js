@@ -200,9 +200,9 @@
     var avg = m.stats.us.avgRating;
     return '<a class="mrow" href="' + matchHref(m) + '">' +
       '<span class="t">' + esc(fmtTime(m.ts)) + '</span>' + resChip(m.result) +
-      '<span class="home">' + crest(m.us, 24) + '</span>' +
+      '<span class="home"><span class="n">' + esc(m.us.name) + '</span>' + crest(m.us, 24) + '</span>' +
       '<span class="sc">' + m.us.goals + ' – ' + m.them.goals + '</span>' +
-      '<span class="away">' + crest(m.them, 24) + (m.dnf ? '<span class="tag" title="A team quit before full time">DNF</span>' : '') + '</span>' +
+      '<span class="away">' + crest(m.them, 24) + '<span class="n">' + esc(m.them.name) + '</span>' + (m.dnf ? '<span class="tag" title="A team quit before full time">DNF</span>' : '') + '</span>' +
       '<span class="best" title="Team average rating">' + (avg > 0 ? rt(avg) : '') + '</span></a>';
   }
   function notices() { return db.sample ? '<div class="banner"><b>Sample data.</b> Real games appear after the first fetch.</div>' : ''; }
@@ -345,7 +345,7 @@
       h += '<section class="card"><div class="card-h"><h2>Player of the match</h2></div><div class="card-b phead">' +
         '<div class="avatar">' + initials(motm.p.name) + '</div><div><div style="font-weight:700;font-size:17px">' +
         (motm.us ? '<a href="' + playerHref(motm.p.id) + '">' + esc(motm.p.name) + '</a>' : esc(motm.p.name)) + '</div>' +
-        '<div class="muted small">' + esc(motm.us ? m.us.name : m.them.name) + ' · ' + POS_LABEL[motm.p.pos] + ' · ' + motm.p.goals + ' G · ' + motm.p.assists + ' A</div></div>' +
+        '<div class="muted small">' + esc(motm.us ? m.us.name : m.them.name) + '</div></div>' +
         '<div class="ovr">' + rt(motm.p.rating, true, true) + '</div></div></section>';
     }
     function top(players, us) {
@@ -374,12 +374,12 @@
   }
   function pitchPlayer(p, m, us) {
     var left = (p.redCards ? '<i class="rc" title="Red card"></i>' : '') + evIcons(ICON_BOOT, p.assists, 'as');
-    var inner = '<span class="av">' + initials(p.name) +
+    var inner = '<span class="av" title="' + esc(p.name) + '">' + initials(p.name) +
       (isSub(p, m) ? '<span class="sub" title="Subbed on at ' + subOnMin(p) + '\'">' + ICON_SUB + subOnMin(p) + '′</span>' : '') +
       rt(p.rating, false, p.motm) +
       (left ? '<span class="evs l"' + (p.assists ? ' title="' + p.assists + ' A"' : '') + '>' + left + '</span>' : '') +
       (p.goals ? '<span class="evs" title="' + p.goals + ' G">' + evIcons(ICON_BALL, p.goals, 'gl') + '</span>' : '') +
-      '</span><span class="nm">' + esc(p.name) + '</span>';
+      '</span>';
     return us ? '<a class="pp" href="' + playerHref(p.id) + '">' + inner + '</a>' : '<div class="pp">' + inner + '</div>';
   }
   function pitchHalf(m, us) {
@@ -629,28 +629,32 @@
   /* ---------- compare (radar) ---------- */
   function pctF(v) { return v === null || v === undefined || !isFinite(v) ? '–' : Math.round(v) + '%'; }
   var CMP = {
-    rating: { label: 'Rating', f: avgRating, fmt: f2 },
-    g90: { label: 'Goals /90', f: function (a) { return per90(a.goals, a.seconds); }, fmt: f2 },
-    a90: { label: 'Assists /90', f: function (a) { return per90(a.assists, a.seconds); }, fmt: f2 },
-    s90: { label: 'Shots /90', f: function (a) { return per90(a.tries, a.seconds); }, fmt: f1 },
-    conv: { label: 'Shot conversion', f: function (a) { return pct(a.goals, a.tries); }, fmt: pctF },
-    gi: { label: 'Goal involvement', f: function (a) { return pct(a.goals + a.assists, a.teamGoals); }, fmt: pctF, tip: 'Goals + assists as a share of club goals in games played' },
-    pass: { label: 'Pass accuracy', f: function (a) { return pct(a.passesMade, a.passAttempts); }, fmt: pctF },
-    p90: { label: 'Passes /90', f: function (a) { return per90(a.passesMade, a.seconds); }, fmt: f1 },
-    t90: { label: 'Tackles won /90', f: function (a) { return per90(a.tacklesMade, a.seconds); }, fmt: f1 },
-    tpct: { label: 'Tackle success', f: function (a) { return pct(a.tacklesMade, a.tackleAttempts); }, fmt: pctF },
-    cga90: { label: 'Conceded /90', f: function (a) { return per90(a.goalsConceded, a.seconds); }, fmt: f2, inv: true, tip: 'Lower is better' },
-    cs: { label: 'Clean sheets', f: function (a) { return pct(a.cleanSheets, a.apps); }, fmt: pctF, tip: 'Share of games' },
-    sv90: { label: 'Saves /90', f: function (a) { return per90(a.saves, a.seconds); }, fmt: f1 },
-    motm: { label: 'MOTM rate', f: function (a) { return pct(a.motm, a.apps); }, fmt: pctF, tip: 'Share of games' },
-    pressing_rate: { label: 'Pressing rate', f: function (a) { return a.seconds > 0 ? a.tackleAttempts / (a.seconds / MATCH_SECONDS) : null; }, fmt: f1, tip: 'Tackle attempts per 90' },
-    atk_threat: { label: 'Attacking threat', f: function (a) { return a.seconds > 0 ? (a.goals + a.assists + a.tries) / (a.seconds / MATCH_SECONDS) : null; }, fmt: f1, tip: 'Goals + assists + shots per 90' }
+    ga:            { label: 'G+A',              f: function (a) { return a.goals + a.assists; },                                        fmt: String },
+    rating:        { label: 'Rating',          f: avgRating,                                                                          fmt: f2 },
+    g90:           { label: 'Goals/90',         f: function (a) { return per90(a.goals, a.seconds); },                                 fmt: f2,   tip: 'Goals per 90 minutes played' },
+    a90:           { label: 'Assists/90',       f: function (a) { return per90(a.assists, a.seconds); },                               fmt: f2,   tip: 'Assists per 90 minutes played' },
+    ga90:          { label: 'G+A/90',           f: function (a) { return per90(a.goals + a.assists, a.seconds); },                     fmt: f2,   tip: 'Goals and assists combined per 90 minutes' },
+    s90:           { label: 'Shots/90',         f: function (a) { return per90(a.tries, a.seconds); },                                 fmt: f1,   tip: 'Shot attempts per 90 minutes' },
+    conv:          { label: 'Shot conv%',       f: function (a) { return pct(a.goals, a.tries); },                                     fmt: pctF, tip: 'Goals divided by shot attempts' },
+    gi:            { label: 'Goal involve%',    f: function (a) { return pct(a.goals + a.assists, a.teamGoals); },                     fmt: pctF, tip: 'Goals + assists as a share of club goals in games played' },
+    pass:          { label: 'Pass%',            f: function (a) { return pct(a.passesMade, a.passAttempts); },                         fmt: pctF, tip: 'Pass completion rate' },
+    p90:           { label: 'Passes/90',        f: function (a) { return per90(a.passesMade, a.seconds); },                            fmt: f1,   tip: 'Passes completed per 90 minutes' },
+    t90:           { label: 'Tackles/90',       f: function (a) { return per90(a.tacklesMade, a.seconds); },                           fmt: f1,   tip: 'Tackles won per 90 minutes' },
+    tpct:          { label: 'Tackle%',          f: function (a) { return pct(a.tacklesMade, a.tackleAttempts); },                      fmt: pctF, tip: 'Tackle success rate — won tackles divided by attempts' },
+    cga90:         { label: 'Conceded/90',      f: function (a) { return per90(a.goalsConceded, a.seconds); },                         fmt: f2,   inv: true, tip: 'Goals conceded per 90 — lower is better' },
+    cs:            { label: 'Clean sheet%',     f: function (a) { return pct(a.cleanSheets, a.apps); },                                fmt: pctF, tip: 'Share of games with a clean sheet' },
+    sv90:          { label: 'Saves/90',         f: function (a) { return per90(a.saves, a.seconds); },                                 fmt: f1,   tip: 'Saves per 90 minutes' },
+    motm:          { label: 'MOTM%',            f: function (a) { return pct(a.motm, a.apps); },                                       fmt: pctF, tip: 'Player of the match award rate' },
+    pressing_rate: { label: 'Press rate',       f: function (a) { return a.seconds > 0 ? a.tackleAttempts / (a.seconds / MATCH_SECONDS) : null; }, fmt: f1, tip: 'Tackle attempts per 90 — measures defensive pressure applied' },
+    atk_threat:    { label: 'Atk threat',       f: function (a) { return a.seconds > 0 ? (a.goals + a.assists + a.tries) / (a.seconds / MATCH_SECONDS) : null; }, fmt: f1, tip: 'Goals + assists + shots per 90 — overall attacking output' }
   };
+  // Axes are ordered so the most important stat for each role sits at the top (12 o'clock).
+  // tableExtra: columns shown in the compare table but not on the radar.
   var CMP_TPL = [
-    { k: 'fwd',  name: 'Forward',          axes: ['g90', 's90', 'a90', 'pass', 'conv', 'gi'],           pos: 'FWD' },
-    { k: 'mid',  name: 'Midfield',          axes: ['g90', 'a90', 'p90', 't90', 'pressing_rate', 'pass'], pos: 'MID' },
-    { k: 'def',  name: 'Defence',           axes: ['t90', 'pressing_rate', 'tpct', 'pass', 'p90', 'cs'], pos: 'DEF' },
-    { k: 'wide', name: 'Wing-back',  axes: ['g90', 's90', 'a90', 't90', 'pressing_rate', 'pass'], pos: null }
+    { k: 'fwd',  name: 'Forward',   axes: ['g90', 'conv', 's90', 'gi', 'a90', 'pass'],           tableExtra: ['ga', 'ga90'], pos: 'FWD' },
+    { k: 'mid',  name: 'Midfield',  axes: ['a90', 'pass', 'p90', 'pressing_rate', 't90', 'g90'], tableExtra: ['ga', 'ga90'], pos: 'MID' },
+    { k: 'def',  name: 'Defence',   axes: ['t90', 'tpct', 'cs', 'pass', 'pressing_rate', 'p90'], tableExtra: ['ga', 'ga90'], pos: 'DEF' },
+    { k: 'wide', name: 'Wing-back', axes: ['a90', 'g90', 's90', 'pass', 'pressing_rate', 't90'], tableExtra: ['ga', 'ga90'], pos: null }
   ];
   // Share of the other players in the pool this value beats. Ties beat nobody; inv flips it for lower-is-better stats.
   function percentile(v, vals, inv) {
@@ -696,7 +700,8 @@
     axes.forEach(function (ax, i) {
       var t = -Math.PI / 2 + i * 2 * Math.PI / n, c = Math.cos(t), sn = Math.sin(t), p = pt(i, R + 16), ls = lines(ax.mt.label), lh = FS * 1.15;
       var y0 = p[1] + FS * 0.32 - (ls.length - 1) * lh * (sn < -0.3 ? 1 : sn > 0.3 ? 0 : 0.5);
-      s += '<text class="alab" style="font-size:' + FS + 'px" x="' + p[0].toFixed(1) + '" y="' + y0.toFixed(1) + '" text-anchor="' + (c > 0.3 ? 'start' : c < -0.3 ? 'end' : 'middle') + '">' +
+      s += '<text class="alab' + (ax.mt.tip ? ' tip' : '') + '" style="font-size:' + FS + 'px" x="' + p[0].toFixed(1) + '" y="' + y0.toFixed(1) + '" text-anchor="' + (c > 0.3 ? 'start' : c < -0.3 ? 'end' : 'middle') + '"' + (ax.mt.tip ? ' data-tip="' + esc(ax.mt.tip) + '"' : '') + '>' +
+        (ax.mt.tip ? '<title>' + esc(ax.mt.tip) + '</title>' : '') +
         ls.map(function (l, k) { return '<tspan x="' + p[0].toFixed(1) + '"' + (k ? ' dy="' + lh.toFixed(1) + '"' : '') + '>' + esc(l) + '</tspan>'; }).join('') + '</text>';
     });
     rows.forEach(function (r) {
@@ -734,15 +739,19 @@
       var mt = CMP[k];
       return { k: k, mt: mt, vals: pool.map(mt.f).filter(function (v) { return v !== null; }) };
     });
+    var extras = (tpl.tableExtra || []).map(function (k) { return { k: k, mt: CMP[k] }; });
     var rows = sel.map(function (a, i) {
       return { a: a, i: i, cells: axes.map(function (ax) { var v = ax.mt.f(a); return { v: v, p: percentile(v, ax.vals, ax.mt.inv) }; }) };
     });
 
-    h += '<section class="card"><div class="tw"><table class="cmptable"><thead><tr><th>Percentile</th>' + axes.map(function (ax) {
-      return '<th' + (ax.mt.tip ? ' title="' + esc(ax.mt.tip) + '"' : '') + '>' + esc(ax.mt.label) + '</th>';
-    }).join('') + '<th>Minutes</th><th><span class="sr">Remove</span></th></tr></thead><tbody>' + rows.map(function (r) {
+    h += '<section class="card"><div class="tw"><table class="cmptable"><thead><tr><th>Player</th>' +
+      extras.map(function (ex) { return '<th' + (ex.mt.tip ? ' title="' + esc(ex.mt.tip) + '"' : '') + ' class="extra">' + esc(ex.mt.label) + '</th>'; }).join('') +
+      axes.map(function (ax) {
+        return '<th' + (ax.mt.tip ? ' title="' + esc(ax.mt.tip) + '"' : '') + '>Pct<small>' + esc(ax.mt.label) + '</small></th>';
+      }).join('') + '<th>Min</th><th><span class="sr">Remove</span></th></tr></thead><tbody>' + rows.map(function (r) {
       var pos = mainPos(r.a);
       return '<tr class="s' + r.i + '"><td class="name"><a href="' + playerHref(r.a.id) + '">' + esc(r.a.name) + '</a><small>' + games(r.a.apps) + (pos ? ' · ' + POS_LABEL[pos] : '') + '</small></td>' +
+        extras.map(function (ex) { var v = ex.mt.f(r.a); return '<td class="extra">' + (v === null ? '–' : ex.mt.fmt(v)) + '</td>'; }).join('') +
         r.cells.map(function (c, k) { return '<td><b class="pv">' + (c.p === null ? '–' : Math.round(c.p)) + '</b><small>' + (c.v === null ? '' : axes[k].mt.fmt(c.v)) + '</small></td>'; }).join('') +
         '<td>' + mins(r.a.seconds) + '</td><td><button class="x" data-act="cmp-toggle" data-id="' + esc(r.a.id) + '" aria-label="Remove ' + esc(r.a.name) + '">×</button></td></tr>';
     }).join('') + '</tbody></table></div></section>';

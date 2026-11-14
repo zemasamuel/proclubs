@@ -309,6 +309,8 @@ th button.on { color: var(--accent); }
 .tiles.t3 { grid-template-columns: repeat(3, 1fr); }
 .vs td.better { font-weight: 700; color: var(--accent); }
 .vs th:not(:first-child), .vs td:not(:first-child) { width: 28%; }
+.cmptable th.extra, .cmptable td.extra { background: var(--surface-2); font-weight: 700; }
+.cmptable th small { display: block; font-size: 10px; font-weight: 400; opacity: .7; }
 
 /* data page */
 textarea { width: 100%; min-height: 120px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--text); padding: 10px; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
