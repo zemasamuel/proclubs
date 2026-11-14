@@ -494,14 +494,15 @@
     var tracked = ui.squadMode === 'tracked';
     var q = ui.squadQuery.trim().toLowerCase();
     var posFilter = ui.squadPos;
+    /* Shared column order: Rating · G · A · G+A · Pass% · Tkl · Win% · MOTM · Min · Apps */
     var cols = tracked
-      ? [['rating', 'Rating'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['ga90', 'G+A /90'], ['pass', 'Pass %'], ['tackles', 'Tkl'], ['mins', 'Min'], ['apps', 'Apps'], ['motm', 'MOTM']]
-      : [['rating', 'Rating'], ['apps', 'Games'], ['motm', 'MOTM'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['win', 'Win %'], ['pass', 'Pass %'], ['ovr', 'OVR']];
+      ? [['rating', 'Rating'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['pass', 'Pass %'], ['tackles', 'Tkl'], ['win', 'Win %'], ['motm', 'MOTM'], ['mins', 'Min'], ['apps', 'Apps']]
+      : [['rating', 'Rating'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['pass', 'Pass %'], ['tackles', 'Tkl'], ['win', 'Win %'], ['motm', 'MOTM'], ['mins', 'Min'], ['apps', 'Apps']];
     if (!cols.some(function (c) { return c[0] === ui.sortK; })) { ui.sortK = 'rating'; ui.sortDir = -1; }
     var rows = idx.players.map(function (a) {
       var mem = db.members[a.name] || null, v, pos = mainPos(a);
-      if (tracked) v = { apps: a.apps, mins: mins(a.seconds), goals: a.goals, assists: a.assists, ga: a.goals + a.assists, ga90: per90(a.goals + a.assists, a.seconds), pass: pct(a.passesMade, a.passAttempts), motm: a.motm, rating: avgRating(a), tackles: a.tacklesMade, shots: a.tries, saves: a.saves, cs: a.cleanSheets };
-      else v = mem ? { apps: mem.gamesPlayed, win: mem.gamesPlayed ? mem.winRate : null, goals: mem.goals, assists: mem.assists, ga: (mem.goals || 0) + (mem.assists || 0), pass: mem.gamesPlayed ? mem.passSuccessRate : null, motm: mem.motm, ovr: mem.overall || null, rating: mem.ratingAve || null } : null;
+      if (tracked) v = { apps: a.apps, mins: mins(a.seconds), goals: a.goals, assists: a.assists, ga: a.goals + a.assists, ga90: per90(a.goals + a.assists, a.seconds), pass: pct(a.passesMade, a.passAttempts), motm: a.motm, rating: avgRating(a), tackles: a.tacklesMade, win: a.apps ? Math.round(pct(a.W, a.apps)) : null, shots: a.tries, saves: a.saves, cs: a.cleanSheets };
+      else v = mem ? { apps: mem.gamesPlayed, mins: null, win: mem.gamesPlayed ? mem.winRate : null, goals: mem.goals, assists: mem.assists, ga: (mem.goals || 0) + (mem.assists || 0), pass: mem.gamesPlayed ? mem.passSuccessRate : null, motm: mem.motm, tackles: mem.tacklesMade || null, rating: mem.ratingAve || null } : null;
       return { a: a, mem: mem, pos: pos, v: v };
     }).filter(function (r) {
       if (!r.v) return false;
