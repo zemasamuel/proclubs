@@ -1,5 +1,4 @@
 {
-  "outputDirectory": ".",
   "crons": [
     {
       "path": "/api/trigger",

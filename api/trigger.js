@@ -1,6 +1,6 @@
 // Vercel serverless function: triggers the GitHub Actions fetch workflow.
 // Called by Vercel Cron on a schedule defined in vercel.json.
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
     return res.status(500).json({ error: 'GITHUB_TOKEN not set' });
@@ -26,4 +26,4 @@ export default async function handler(req, res) {
 
   const text = await response.text();
   return res.status(response.status).json({ error: text });
-}
+};
