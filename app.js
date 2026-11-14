@@ -197,11 +197,45 @@
   }
   function avgRating(a) { return a.rated ? a.ratingSum / a.rated : null; }
   function mainPos(a) {
+    /* For our players (who have a log), use their last 3 games to decide.
+       For opponents (no log), fall back to minutes-across-all-games. */
+    if (a.log && a.log.length) {
+      var recent = a.log.slice(-3), tally = {};
+      recent.forEach(function (x) { if (x.p.pos && x.p.pos !== 'N/A') tally[x.p.pos] = (tally[x.p.pos] || 0) + (x.p.secondsPlayed || 0); });
+      var best = null;
+      Object.keys(tally).forEach(function (p) { if (!best || tally[p] > tally[best]) best = p; });
+      if (best) return best;
+    }
     var best = null;
     Object.keys(a.pos).forEach(function (p) { if (!best || a.pos[p] > a.pos[best]) best = p; });
     if (best) return best;
     var mem = db.members[a.name];
     return mem && mem.favoritePosition !== 'N/A' ? mem.favoritePosition : null;
+  }
+
+  /* posSnapshot: for one of our players, build a fresh aggregate containing only
+     the games where they played posKey. Used so the compare pool can represent
+     a player in every position they've actually appeared at. */
+  function posSnapshot(a, posKey) {
+    var snap = newAgg(a.id, a.name);
+    a.log.forEach(function (x) {
+      if (x.p.pos !== posKey) return;
+      var p = x.p, m = x.m;
+      snap.apps++; snap.goals += p.goals; snap.assists += p.assists;
+      snap.passesMade += p.passesMade; snap.passAttempts += p.passAttempts;
+      snap.tacklesMade += p.tacklesMade; snap.tackleAttempts += p.tackleAttempts;
+      snap.saves += p.saves; snap.goalsConceded += p.goalsConceded;
+      snap.seconds += p.secondsPlayed;
+      if (p.motm) snap.motm++;
+      if (p.cleanSheet) snap.cleanSheets++;
+      if (p.rating > 0) { snap.ratingSum += p.rating; snap.rated++; }
+      snap[m.result]++;
+      snap.teamGoals += m.us.goals; snap.tries += tries(p);
+    });
+    snap.pos[posKey] = snap.seconds;
+    snap._posKey = posKey; /* remember which slice this is */
+    snap._src = a;        /* back-reference to full aggregate */
+    return snap;
   }
 
   /* addApp: add one appearance to a player's season total */
@@ -1217,14 +1251,32 @@
     var beaten = vals.filter(function (x) { return Math.abs(x - v) >= 1e-9 && (inv ? x > v : x < v); }).length;
     return beaten / vals.length * 100;
   }
-  /* cmpPool: who the radar ranks against — every player, ours and opponents, with 90+ minutes
-     across the saved games. Fewer minutes than that and per-90 numbers swing wildly. */
+  /* cmpPool: who the radar ranks against — game-by-game position snapshots for our players,
+     plus full-season aggregates for opponents. Only entries with 90+ minutes in that position. */
   var CMP_POOL_MIN_SECONDS = MATCH_SECONDS;
   function cmpPool(pos) {
-    return cmpAvail().concat(idx.opps).filter(function (a) { return a.seconds >= CMP_POOL_MIN_SECONDS && mainPos(a) === pos; });
+    /* Our players: one snapshot per distinct position they have played at */
+    var ourSnaps = [];
+    cmpAvail().forEach(function (a) {
+      var positions = {};
+      a.log.forEach(function (x) { if (x.p.pos && x.p.pos !== 'N/A') positions[x.p.pos] = true; });
+      Object.keys(positions).forEach(function (p) {
+        if (p !== pos) return;
+        var snap = posSnapshot(a, p);
+        if (snap.seconds >= CMP_POOL_MIN_SECONDS) ourSnaps.push(snap);
+      });
+    });
+    var oppSnaps = idx.opps.filter(function (a) { return a.seconds >= CMP_POOL_MIN_SECONDS && mainPos(a) === pos; });
+    return ourSnaps.concat(oppSnaps);
   }
-  /* cmpAvail: players with at least one tracked game, eligible for compare */
+  /* cmpAvail: players with at least one tracked game, eligible to be selected for compare */
   function cmpAvail() { return idx.players.filter(function (a) { return a.apps > 0; }); }
+  /* cmpSnapForSel: get the pool snapshot for a selected player in the current group */
+  function cmpSnapForSel(a, pos) {
+    if (!a.log) return a; /* opponent — use as-is */
+    var snap = posSnapshot(a, pos);
+    return snap.apps > 0 ? snap : a; /* fall back to full agg if no games at this pos */
+  }
 
   /* cmpSelected: the picked players, in pick order (ids that no longer exist are dropped) */
   function cmpSelected() {
@@ -1320,22 +1372,27 @@
 
     if (!sel.length) { return h + '<div class="card"><div class="card-b muted">Pick a player above to compare.</div></div>'; }
 
-    var grp = cmpGroupOf(sel), pool = cmpPool(grp.k), ours = pool.filter(function (a) { return avail.indexOf(a) >= 0; }).length;
+    var grp = cmpGroupOf(sel), pool = cmpPool(grp.k);
+    /* ours = pool entries that are snapshots of our players (they carry _src) */
+    var ours = pool.filter(function (a) { return !!a._src; }).length;
     var radarAxes = grp.axes.map(function (k) {
       var mt = CMP[k];
       return { k: k, mt: mt, vals: pool.map(mt.f).filter(function (v) { return v !== null; }) };
     });
+    /* For each selected player use the position snapshot so stats reflect only
+       the games they actually played at this position in this group */
     var rows = sel.map(function (a, i) {
-      return { a: a, i: i, cells: radarAxes.map(function (ax) { var v = ax.mt.f(a); return { v: v, p: percentile(v, ax.vals, ax.mt.inv) }; }) };
+      var snap = cmpSnapForSel(a, grp.k);
+      return { a: a, i: i, cells: radarAxes.map(function (ax) { var v = ax.mt.f(snap); return { v: v, p: percentile(v, ax.vals, ax.mt.inv) }; }) };
     });
 
-    var thin = sel.filter(function (a) { return a.seconds < CMP_POOL_MIN_SECONDS; });
+    var thin = sel.filter(function (a) { return cmpSnapForSel(a, grp.k).seconds < CMP_POOL_MIN_SECONDS; });
     h += '<section class="card"><div class="card-b"><div class="radar-grp"><span class="muted small">Rank against</span><div class="seg" role="group" aria-label="Position group to rank against">' +
       CMP_GROUPS.map(function (g) { return '<button data-act="cmp-group" data-g="' + g.k + '" aria-pressed="' + (g === grp) + '">' + g.label + '</button>'; }).join('') + '</div></div>' +
       radarSvg(radarAxes, rows) +
       '<p class="muted small radar-note">Ranked against ' + pool.length + ' ' + grp.plural + ' with 90+ minutes in our games: ' + ours + ' of ours and ' + (pool.length - ours) + ' opponents.' +
       (pool.length < 15 ? ' A small group, so each player moves the scale a lot.' : '') +
-      (thin.length ? ' ' + esc(thin.map(function (a) { return a.name; }).join(', ')) + (thin.length === 1 ? ' has' : ' have') + ' under 90 minutes, so treat ' + (thin.length === 1 ? 'that shape' : 'those shapes') + ' loosely.' : '') + '</p></div></section>';
+      (thin.length ? ' ' + esc(thin.map(function (a) { return a.name; }).join(', ')) + (thin.length === 1 ? ' has' : ' have') + ' under 90 minutes at this position, so treat ' + (thin.length === 1 ? 'that shape' : 'those shapes') + ' loosely.' : '') + '</p></div></section>';
 
     /* Stat comparison list */
     h += '<section class="card"><div class="cmp-list" style="--cmp-n:' + sel.length + '">';
@@ -1351,7 +1408,7 @@
       }
       var k = item, mt = CMP[k];
       if (!mt) return;
-      var vals = sel.map(function (a) { return mt.f(a); });
+      var vals = sel.map(function (a) { return mt.f(cmpSnapForSel(a, grp.k)); });
       /* find winner: highest value (or lowest if inv) among non-null vals */
       var winnerIdx = null;
       if (sel.length >= 2) {
