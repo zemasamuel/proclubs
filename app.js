@@ -262,11 +262,11 @@
   }
   function record(t) { return t.W + 'W ' + t.D + 'D ' + t.L + 'L'; }
   function isSub(p, m) { return m.full > 0 && p.secondsPlayed > 0 && p.secondsPlayed < m.full - SUB_MARGIN; }
-  function subOnMin(p) { return Math.round(p.secondsPlayed / 60); }
-  function minsPlayed(p, m) { return mins(m.full - p.secondsPlayed); }
+  // We only know how long a player was on the pitch, not whether they subbed on or off.
+  // Always show actual minutes played (secondsPlayed) so the number is never wrong.
   function minsCell(p, m) {
-    var n = isSub(p, m) ? minsPlayed(p, m) : mins(p.secondsPlayed);
-    return isSub(p, m) ? '<span class="submin" title="Subbed on at ' + subOnMin(p) + '\'">' + ICON_SUB + n + '</span>' : n;
+    var n = mins(p.secondsPlayed);
+    return isSub(p, m) ? '<span class="submin" title="Partial appearance (' + n + ' min)">' + ICON_SUB + n + '</span>' : n;
   }
   /* Stat tile grid: list of [label, value] pairs → HTML */
   function tiles(list, cls) {
@@ -458,7 +458,7 @@
   function pitchPlayer(p, m, us) {
     var cardHtml = p.redCards ? '<span class="pcard" title="Red card">' + ICON_RC + '</span>' : '';
     var inner = '<span class="av">' + playerImg() +
-      (isSub(p, m) ? '<span class="sub" title="Subbed on at ' + subOnMin(p) + '\'"><span class="sub-min">' + subOnMin(p) + '’</span><i class="sub-ic">' + ICON_SUB + '</i></span>' : '') +
+      (isSub(p, m) ? '<span class="sub" title="Partial appearance (' + mins(p.secondsPlayed) + ' min)"><span class="sub-min">' + mins(p.secondsPlayed) + '’</span><i class="sub-ic">' + ICON_SUB + '</i></span>' : '') +
       rt(p.rating, false, p.motm) +
       cardHtml +
       (p.assists ? '<span class="evs l" title="' + p.assists + ' A">' + evIcons(ICON_BOOT, p.assists, 'as') + '</span>' : '') +
@@ -509,7 +509,7 @@
 
   var PT_COLS = [
     { k: 'rating', label: 'Rating', v: function (p) { return p.rating || 0; } },
-    { k: 'mins',   label: 'Min',    v: function (p, m) { return isSub(p, m) ? minsPlayed(p, m) : mins(p.secondsPlayed); } },
+    { k: 'mins',   label: 'Min',    v: function (p, m) { return mins(p.secondsPlayed); } },
     { k: 'goals',  label: 'G',      v: function (p) { return p.goals; } },
     { k: 'assists',label: 'A',      v: function (p) { return p.assists; } },
     { k: 'shots',  label: 'Shots',  v: function (p) { return tries(p); } },
@@ -1341,7 +1341,7 @@
     }
     if (o) {
       h += '<section class="card"><div class="card-h"><h2>All-time</h2></div>' +
-        tiles([['Played', o.gamesPlayed], ['Record', o.wins + '-' + o.draws + '-' + o.losses], ['Win rate', pctS(o.wins, o.gamesPlayed)], ['Goals for', o.goals], ['Goals against', o.goalsAgainst], ['Skill rating', o.skillRating], ['Promotions', o.promotions], ['Relegations', o.relegations], ['Unbeaten run', o.unbeatenStreak], ['League games', o.leagueApps], ['Playoff games', o.playoffApps], ['Goal difference', (o.goals - o.goalsAgainst >= 0 ? '+' : '−') + Math.abs(o.goals - o.goalsAgainst)]]) + '</section>';
+        tiles([['Played', o.gamesPlayed], ['Record', o.wins + '-' + o.draws + '-' + o.losses], ['Win rate', pctS(o.wins, o.gamesPlayed)], ['Goals for', o.goals], ['Goals against', o.goalsAgainst], ['Skill rating', o.skillRating], ['Promotions', o.promotions], ['Relegations', o.relegations], ['Goals / game', o.gamesPlayed ? (o.goals / o.gamesPlayed).toFixed(2) : '—'], ['League games', o.leagueApps], ['Playoff games', o.playoffApps], ['Goal difference', (o.goals - o.goalsAgainst >= 0 ? '+' : '') + (o.goals - o.goalsAgainst)]]) + '</section>';
     }
     if (ms.length) {
       var bigW = null, bigL = null, hi = null, perf = null;
