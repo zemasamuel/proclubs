@@ -65,11 +65,8 @@
   function mins(sec) { return Math.round(sec / 60); }
   function games(n) { return n + (n === 1 ? ' game' : ' games'); }
 
-  function playerImg(playerId) {
-    var src = playerId
-      ? 'https://www.fotmob.com/image_resources/playerimages/' + playerId + '.png'
-      : PLAYER_AVATAR_URL;
-    return '<img class="p-img" src="' + src + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + PLAYER_AVATAR_URL + '\'">';
+  function playerImg() {
+    return '<img class="p-img" src="' + PLAYER_AVATAR_URL + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + PLAYER_AVATAR_FALLBACK + '\'">';
   }
 
   /* Rating chip: red to green by tenth, blue with a star for player of the match. */
