@@ -1785,20 +1785,82 @@
     saved.forEach(function (p, i) { if (els[i]) { els[i].scrollLeft = p[0]; els[i].scrollTop = p[1]; } });
   }
 
-  var lastRoute = null;
+  /* The address holds the page and the choices made on it, e.g. #match-123/lineup,
+     #squad/per90, #compare/111,222/MID. So refresh, back/forward and shared links all land on
+     the same view. Choices made on a page replace the address instead of adding history steps,
+     like tabs in a phone app: back leaves the page, it does not step back through its tabs. */
+  var MATCH_TABS = ['facts', 'lineup', 'stats', 'players', 'h2h'];
+  var SQUAD_POS = ['ALL', 'FWD', 'MID', 'DEF', 'GK'];
+  function splitHash() {
+    var h = (location.hash || '').replace(/^#/, ''), i = h.indexOf('/');
+    return { base: i < 0 ? h : h.slice(0, i), sub: i < 0 ? [] : h.slice(i + 1).split('/') };
+  }
+  /* applySub: read the choices in the address into ui. A bare #squad or #compare (the tab bar)
+     keeps whatever was picked last; a bare #match-… opens on Facts. */
+  function applySub(base, sub) {
+    if (base.indexOf('match-') === 0) ui.tab = MATCH_TABS.indexOf(sub[0]) >= 0 ? sub[0] : 'facts';
+    else if (base === 'squad' && sub.length) {
+      ui.squadMode = SQUAD_MODES.some(function (m) { return m[0] === sub[0]; }) ? sub[0] : 'tracked';
+      ui.squadPos = SQUAD_POS.indexOf(sub[1]) >= 0 ? sub[1] : 'ALL';
+    } else if (base === 'compare' && sub.length) {
+      ui.cmpSel = sub[0].split(',').map(function (k) { return idx.bySlug[k]; }).filter(function (a) { return a && a.apps; }).map(function (a) { return a.id; });
+      ui.cmpGroup = CMP_GROUPS.some(function (g) { return g.k === sub[1]; }) ? sub[1] : null;
+    }
+  }
+  function canonicalHash(base) {
+    if (base.indexOf('match-') === 0) return base + (ui.tab !== 'facts' ? '/' + ui.tab : '');
+    if (base === 'squad') return 'squad' + (ui.squadPos !== 'ALL' ? '/' + ui.squadMode + '/' + ui.squadPos : ui.squadMode !== 'tracked' ? '/' + ui.squadMode : '');
+    if (/^compare(-|$)/.test(base)) {
+      var sel = cmpSelected();
+      return sel.length ? 'compare/' + sel.map(function (a) { return slug(a.id); }).join(',') + (ui.cmpGroup ? '/' + ui.cmpGroup : '') : 'compare';
+    }
+    return base;
+  }
+  /* syncHash: write the current choices into the address without adding a history step */
+  function syncHash() {
+    var base = splitHash().base;
+    if (!base) return;
+    var want = '#' + canonicalHash(base);
+    if (want !== location.hash) history.replaceState(history.state, '', want);
+    lastRoute = splitHash().base;
+  }
+
+  /* Scroll position is kept per history step, so back/forward and refresh return to the same spot */
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  var scrollTimer = null;
+  function saveScroll() {
+    clearTimeout(scrollTimer); scrollTimer = null;
+    history.replaceState({ y: Math.round(window.scrollY || window.pageYOffset || 0) }, '', location.href);
+  }
+  window.addEventListener('scroll', function () { clearTimeout(scrollTimer); scrollTimer = setTimeout(saveScroll, 200); }, { passive: true });
+  window.addEventListener('pagehide', saveScroll);
+  /* save the spot right before a link is followed (the timer above may not have fired yet) */
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (a) saveScroll();
+  }, true);
+
+  var lastRoute = null, pendingSlide = 0;
   function render() {
     hideTip();
-    var hash = (location.hash || '').replace(/^#/, '');
-    var saved = hash === lastRoute ? tableScroll() : null;
-    route(hash);
+    var p = splitHash(), first = lastRoute === null, changed = p.base !== lastRoute;
+    if (changed) { clearTimeout(scrollTimer); scrollTimer = null; }
+    var saved = changed ? null : tableScroll();
+    view.classList.remove('swipe-next', 'swipe-prev');
+    applySub(p.base, p.sub);
+    route(p.base);
     restoreTableScroll(saved);
+    syncHash();
+    if (changed) {
+      var y = history.state && typeof history.state.y === 'number' ? history.state.y : 0;
+      if (!first || y) window.scrollTo(0, y);
+    }
+    if (pendingSlide) { view.classList.add(pendingSlide > 0 ? 'swipe-next' : 'swipe-prev'); pendingSlide = 0; }
   }
   function route(hash) {
     var m;
     var routeChanged = hash !== lastRoute;
     if (routeChanged) {
-      if (lastRoute !== null) window.scrollTo(0, 0);
-      if (hash.indexOf('match-') === 0 && (lastRoute || '').indexOf('match-') !== 0) ui.tab = 'facts';
       if (hash.indexOf('day-') === 0) ui.calMonth = null;
       /* #compare keeps the current picks; #compare-<player> (from a player page) starts with that player picked */
       if ((m = /^compare-([A-Za-z0-9]+)$/.exec(hash)) && idx.bySlug[m[1]] && idx.bySlug[m[1]].apps) ui.cmpSel = [idx.bySlug[m[1]].id];
@@ -1897,15 +1959,17 @@
       var p = ui.calMonth.split('-'), d = new Date(+p[0], +p[1] - 1 + (act === 'cal-next' ? 1 : -1), 1);
       ui.calMonth = d.getFullYear() + '-' + pad(d.getMonth() + 1);
     }
-    else if (act === 'tab') ui.tab = el.getAttribute('data-tab');
-    else if (act === 'cmp-group') ui.cmpGroup = el.getAttribute('data-g');
+    else if (act === 'tab') { ui.tab = el.getAttribute('data-tab'); syncHash(); }
+    else if (act === 'cmp-group') { ui.cmpGroup = el.getAttribute('data-g'); syncHash(); }
     else if (act === 'cmp-toggle') {
       var cid = el.getAttribute('data-id'), ids = cmpSelected().map(function (a) { return a.id; }), at = ids.indexOf(cid);
       if (at >= 0) ids.splice(at, 1); else ids.push(cid);
       ui.cmpSel = ids;
+      syncHash();
     }
     else if (act === 'squad-mode') {
       ui.squadMode = el.getAttribute('data-mode');
+      syncHash();
       var sy1 = window.scrollY || window.pageYOffset;
       render();
       window.scrollTo(0, sy1);
@@ -1913,6 +1977,7 @@
     }
     else if (act === 'squad-pos') {
       ui.squadPos = el.getAttribute('data-pos');
+      syncHash();
       var sy2 = window.scrollY || window.pageYOffset;
       render();
       window.scrollTo(0, sy2);
@@ -1966,6 +2031,68 @@
     if (t.classList.contains('p-img')) { if (t.getAttribute('src') !== PLAYER_AVATAR_FALLBACK) t.src = PLAYER_AVATAR_FALLBACK; }
     else if (t.parentNode && t.parentNode.classList && t.parentNode.classList.contains('cr')) t.parentNode.classList.add('bad');
   }, true);
+
+  /* ---------- swipe (phones) ----------
+     Like FotMob: swiping sideways moves through the choices on the page you are on, never
+     between the tabs in the bottom bar. Matches: previous / next match day. A game: Facts,
+     Lineup, Stats, Player stats, Head-to-Head. Squad: This season, Career, Per 90. Compare:
+     the position group. Back is left to the phone's own back gesture, so swipes that start at
+     the very edge of the screen are ignored, as are swipes on anything that scrolls sideways. */
+  var SWIPE_EDGE = 24, swipeMq = window.matchMedia ? window.matchMedia('(max-width: 640px)') : null, swipe = null;
+  function scrollsSideways(el) {
+    for (; el && el !== document.body; el = el.parentElement) {
+      if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return true;
+      var ox = getComputedStyle(el).overflowX;
+      if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) return true;
+    }
+    return false;
+  }
+  function swipeTo(dir) {
+    var base = splitHash().base, keys, cur, set;
+    if (base === '' || base === 'matches' || base.indexOf('day-') === 0) {
+      var m = /^day-(\d{4}-\d{2}-\d{2})$/.exec(base), days = idx.days, sel = m ? m[1] : days[days.length - 1], to = null;
+      if (!sel) return;
+      days.forEach(function (d) { if (dir < 0 && d < sel) to = d; if (dir > 0 && d > sel && !to) to = d; });
+      if (!to) return;
+      pendingSlide = dir;
+      location.replace('#day-' + to);
+      return;
+    }
+    if (base.indexOf('match-') === 0) {
+      keys = Array.prototype.map.call(view.querySelectorAll('[data-act="tab"]'), function (b) { return b.getAttribute('data-tab'); });
+      cur = ui.tab; set = function (k) { ui.tab = k; };
+    } else if (base === 'squad') {
+      keys = SQUAD_MODES.map(function (x) { return x[0]; });
+      cur = ui.squadMode; set = function (k) { ui.squadMode = k; };
+    } else if (base === 'compare' && cmpSelected().length) {
+      keys = CMP_GROUPS.map(function (g) { return g.k; });
+      cur = cmpGroupOf(cmpSelected()).k; set = function (k) { ui.cmpGroup = k; };
+    } else return;
+    var i = keys.indexOf(cur) + dir;
+    if (i < 0 || i >= keys.length) return;
+    set(keys[i]);
+    syncHash();
+    pendingSlide = dir;
+    var y = window.scrollY || window.pageYOffset;
+    render();
+    window.scrollTo(0, y);
+  }
+  document.addEventListener('touchstart', function (e) {
+    swipe = null;
+    if (!swipeMq || !swipeMq.matches || e.touches.length !== 1) return;
+    var t = e.touches[0];
+    if (t.clientX < SWIPE_EDGE || t.clientX > window.innerWidth - SWIPE_EDGE) return;
+    if (!view.contains(e.target) || scrollsSideways(e.target)) return;
+    swipe = { x: t.clientX, y: t.clientY, t: Date.now() };
+  }, { passive: true });
+  document.addEventListener('touchend', function (e) {
+    if (!swipe) return;
+    var t = e.changedTouches[0], dx = t.clientX - swipe.x, dy = t.clientY - swipe.y, dt = Date.now() - swipe.t;
+    swipe = null;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5 || dt > 700) return;
+    swipeTo(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  document.addEventListener('touchcancel', function () { swipe = null; }, { passive: true });
 
   db = loadDb();
   idx = buildIndex();
