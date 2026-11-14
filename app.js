@@ -1,9 +1,13 @@
-/* eatmob: renders every view from window.EATMOB_DB (data/db.js). */
+/* eatmob — FC Pro Clubs match tracker for the Eaters.
+ * All views are rendered client-side from window.EATMOB_DB (data/db.js).
+ * No server; every page load builds the UI from the static data file. */
 (function () {
   'use strict';
 
+  /* ---------- constants ---------- */
   var TIME_ZONE = 'America/Chicago';
   var CREST_BASE = 'https://eatmob-crests.zemasamuel.workers.dev/';
+  /* Primary avatar image; inline SVG fallback if the asset fails to load */
   var PLAYER_AVATAR_URL = 'assets/player-fallback-dark.png';
   var PLAYER_AVATAR_FALLBACK = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23232927'/%3E%3Ccircle cx='32' cy='23' r='12' fill='%235c6662'/%3E%3Cpath d='M10 64c2-14 12-22 22-22s20 8 22 22' fill='%235c6662'/%3E%3C/svg%3E";
   var DAY_STARTS_AT_HOUR = 5;      // games ending before 5 AM count for the previous day
@@ -14,27 +18,30 @@
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+  /* ---------- DOM refs & UI state ---------- */
   var view = document.getElementById('view');
   var chartTip = document.getElementById('chart-tip');
+  /* ui holds all ephemeral view state; render() reads from it every time */
   var ui = {
     calOpen: false,
-    calMonth: null,
-    tab: 'facts',
-    squadMode: 'tracked',
-    squadQuery: '',
-    squadPos: 'ALL',
-    statsMode: 'tracked',
-    oppQuery: '',
-    sortK: 'rating',
-    sortDir: -1,
-    cmp: { tpl: 'fwd', sel: null },
-    matchSort: { k: 'rating', dir: -1 },
-    per90Sort: { k: 'mins', dir: -1 }
+    calMonth: null,       // null = show today's month
+    tab: 'facts',         // active tab on match detail view
+    squadMode: 'tracked', // 'tracked' (this-season stats) or 'ea' (career stats)
+    squadQuery: '',       // text filter on squad table
+    squadPos: 'ALL',      // position filter on squad table
+    statsMode: 'tracked', // leaderboards source: 'tracked' or 'ea'
+    oppQuery: '',         // text filter on opponents table
+    sortK: 'rating',      // squad table sort column
+    sortDir: -1,          // -1 = descending, 1 = ascending
+    cmp: { sel: null },   // compare: selected player IDs (null = use defaults)
+    matchSort: { k: 'rating', dir: -1 },   // match detail player-table sort
+    per90Sort: { k: 'mins', dir: -1 }      // squad per-90 table sort
   };
+  /* Allow the entire squad to be compared at once */
   var MAX_COMPARE = 99;
   var db, idx;
 
-  /* ---------- helpers ---------- */
+  /* ---------- utility / formatting helpers ---------- */
   function esc(s) {
     return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -79,6 +86,7 @@
     var a = RT_STOPS[i - 1], b = RT_STOPS[i], t = (v - a[0]) / (b[0] - a[0]);
     return 'rgb(' + a[1].map(function (c, k) { return Math.round(c + (b[1][k] - c) * t); }).join(',') + ')';
   }
+  /* Rating chip: colour-coded span, blue with star for MOTM. */
   function rt(r, big, motm) {
     var cls = 'rt' + (big ? ' big' : '');
     if (!(r > 0)) return '<span class="' + cls + ' none">–</span>';
@@ -130,7 +138,7 @@
       '<span class="fb">' + initials(side && side.name || '?') + '</span></span>';
   }
 
-  /* ---------- data ---------- */
+  /* ---------- data loading & indexing ---------- */
   function loadDb() {
     var base = window.EATMOB_DB || { club: { id: '', name: 'Eaters' }, members: {}, matches: [] };
     return {
@@ -208,6 +216,7 @@
     var n = isSub(p, m) ? minsPlayed(p, m) : mins(p.secondsPlayed || 0);
     return isSub(p, m) ? '<span class="submin" title="Subbed on at ' + subOnMin(p) + '\'">' + ICON_SUB + n + '</span>' : n;
   }
+  /* Stat tile grid: list of [label, value] pairs → HTML */
   function tiles(list, cls) {
     return '<div class="tiles' + (cls ? ' ' + cls : '') + '">' + list.map(function (t) { return '<div class="tile"><b>' + t[1] + '</b><span>' + t[0] + '</span></div>'; }).join('') + '</div>';
   }
@@ -662,8 +671,11 @@
     view.innerHTML = h;
   }
 
-  /* ---------- compare (radar) ---------- */
+  /* ---------- compare (radar + stat list) ---------- */
+  /* pctF: format a percentage value, used by CMP metric formatters */
   function pctF(v) { return v === null || v === undefined || !isFinite(v) ? '–' : Math.round(v) + '%'; }
+  /* CMP: all comparison metrics — each has a label, value function (a → number|null),
+     formatter, optional tooltip, and optional inv flag (lower = better). */
   var CMP = {
     ga:            { label: 'G+A',             f: function (a) { return a.goals + a.assists; },                                                                        fmt: String },
     rating:        { label: 'Rating',          f: avgRating,                                                                                                          fmt: f2 },
@@ -684,21 +696,17 @@
     pressing_rate: { label: 'Press rate',      f: function (a) { return a.seconds > 0 ? a.tackleAttempts / (a.seconds / MATCH_SECONDS) : null; }, fmt: f1, tip: 'Tackle attempts per 90 — measures defensive pressure applied' },
     atk_threat:    { label: 'Atk threat',      f: function (a) { return a.seconds > 0 ? (a.goals + a.assists + a.tries) / (a.seconds / MATCH_SECONDS) : null; }, fmt: f1, tip: 'Goals + assists + shots per 90 — overall attacking output' }
   };
-  var CMP_TPL = [
-    { k: 'fwd',  name: 'Forward',   axes: ['g90', 'conv', 's90', 'gi', 'a90', 'pass'],            tableExtra: ['ga', 'ga90'], pos: 'FWD' },
-    { k: 'mid',  name: 'Midfield',  axes: ['a90', 'pass', 'p90', 'pressing_rate', 't90', 'g90'], tableExtra: ['ga', 'ga90'], pos: 'MID' },
-    { k: 'def',  name: 'Defence',   axes: ['t90', 'tpct', 'cs', 'pass', 'pressing_rate', 'p90'], tableExtra: ['ga', 'ga90'], pos: 'DEF' },
-    { k: 'wide', name: 'Wing-back', axes: ['a90', 'g90', 's90', 'pass', 'pressing_rate', 't90'], tableExtra: ['ga', 'ga90'], pos: null }
-  ];
+  /* percentile: 0–100 position of v in vals array; inv=true means lower is better */
   function percentile(v, vals, inv) {
     if (v === null || !vals.length) return null;
     if (vals.length < 2) return 50;
     var beaten = vals.filter(function (x) { return inv ? x > v + 1e-9 : x < v - 1e-9; }).length;
     return beaten / (vals.length - 1) * 100;
   }
+  /* cmpAvail: players with at least one tracked game, eligible for compare */
   function cmpAvail() { return idx.players.filter(function (a) { return a.apps > 0; }); }
 
-  /* Default Compare tab selection: Zema and Faze */
+  /* Default Compare selection: Zema and Faze, falling back to the two most-used players */
   function defaultCompareIds() {
     var avail = cmpAvail();
     var zema = null, faze = null;
@@ -725,10 +733,12 @@
   /* When entering Compare from a Player Card (#compare-<id>), select ONLY that player */
   function cmpSetSingle(a) {
     ui.cmp.sel = [a.id];
-    var pos = mainPos(a);
-    CMP_TPL.forEach(function (t) { if (t.pos && t.pos === pos) ui.cmp.tpl = t.k; });
   }
 
+  /* radarSvg: build an SVG radar/spider chart.
+   *   axes: array of { k, mt, vals } — one spoke per stat
+   *   rows: array of { a, i, cells } — one polygon per player
+   * Uses percentile positioning so every player can be compared regardless of scale. */
   var compactMq = window.matchMedia ? window.matchMedia('(max-width: 600px)') : null;
   function radarSvg(axes, rows) {
     var compact = !!(compactMq && compactMq.matches);
@@ -767,7 +777,10 @@
     return s + '</svg>';
   }
 
+  /* Axes shown on the radar — a balanced overview of key stats */
   var CMP_RADAR_AXES = ['rating', 'ga90', 'g90', 'a90', 'pass', 't90', 'motm'];
+  /* Full stat list shown below the radar, grouped by section.
+   * String items reference CMP keys; object items are section headers. */
   var CMP_ALL_STATS = [
     { section: 'Overall' },
     'rating', 'motm', 'ga', 'ga90',
@@ -842,13 +855,15 @@
     view.innerHTML = h;
   }
 
-  /* ---------- club stats ---------- */
+  /* ---------- club stats & leaderboards ---------- */
+  /* board: render a top-5 leaderboard card */
   function board(title, rows) {
     return '<section class="card"><div class="card-h"><h2>' + title + '</h2></div><div class="plist">' +
       (rows.slice(0, 5).map(function (r, i) {
         return '<a class="pl" href="' + playerHref(r.a.id) + '"><span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(r.a.name) + '<small>' + games(r.a.apps) + '</small></span><span class="v">' + r.s + '</span></a>';
       }).join('') || '<div class="pl muted">None yet.</div>') + '</div></section>';
   }
+  /* leaders: build sorted leaderboard rows from tracked idx.players */
   function leaders(valueFn, fmt) {
     return idx.players.filter(function (a) { return a.apps > 0; })
       .map(function (a) { return { a: a, v: valueFn(a) }; }).filter(function (r) { return r.v !== null && r.v > 0; })
@@ -1086,7 +1101,8 @@
     view.innerHTML = h;
   }
 
-  /* ---------- routing ---------- */
+  /* ---------- routing & render ---------- */
+  /* reload: re-parse db and rebuild index (called once on startup) */
   function reload() { db = loadDb(); idx = buildIndex(); }
   function setNav(name) {
     Array.prototype.forEach.call(document.querySelectorAll('[data-nav]'), function (a) {
@@ -1123,7 +1139,7 @@
     viewDay(m && validKey(m[1]) ? m[1] : null);
   }
 
-  /* ---------- interactive tooltips ---------- */
+  /* ---------- tooltip (hover on chart dots / radar labels) ---------- */
   function showTip(node, clientX, clientY) {
     if (!chartTip) return;
     var t = node.getAttribute('data-tip-title') || '';
@@ -1154,7 +1170,7 @@
     if (e.target.closest && e.target.closest('.tip-node')) hideTip();
   });
 
-  /* ---------- filter inputs ---------- */
+  /* ---------- live filter inputs (squad search, opponents search) ---------- */
   document.addEventListener('input', function (e) {
     var el = e.target;
     if (!el || !el.getAttribute) return;
@@ -1170,7 +1186,7 @@
     }
   });
 
-  /* ---------- keyboard shortcuts ---------- */
+  /* ---------- keyboard shortcuts (arrow keys navigate between matches / days) ---------- */
   document.addEventListener('keydown', function (e) {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     var tag = (e.target && e.target.tagName) || '';
@@ -1189,7 +1205,7 @@
     }
   });
 
-  /* ---------- click actions ---------- */
+  /* ---------- click actions (data-act dispatch) ---------- */
   document.addEventListener('click', function (e) {
     var tipNode = e.target.closest ? e.target.closest('.tip-node') : null;
     if (tipNode && tipNode.tagName === 'text') {
@@ -1205,7 +1221,6 @@
       ui.calMonth = d.getFullYear() + '-' + pad(d.getMonth() + 1);
     }
     else if (act === 'tab') ui.tab = el.getAttribute('data-tab');
-    else if (act === 'cmp-tpl') ui.cmp.tpl = el.getAttribute('data-tpl');
     else if (act === 'cmp-toggle') {
       var cid = el.getAttribute('data-id'), ids = cmpSelected().map(function (a) { return a.id; }), at = ids.indexOf(cid);
       if (at >= 0) ids.splice(at, 1); else if (ids.length < MAX_COMPARE) ids.push(cid);
@@ -1250,7 +1265,7 @@
     render();
   });
 
-  /* dark mode toggle */
+  /* ---------- dark mode toggle ---------- */
   var themeBtn = document.getElementById('themeToggle');
   function applyTheme(dark) {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
