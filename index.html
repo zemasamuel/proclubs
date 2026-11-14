@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Content-Security-Policy: the page may only run its own scripts (no inline script, no eval, no
+     third-party code), load images from itself and the crest server, and fonts from Google Fonts.
+     If app.js ever let untrusted text through, the browser would still refuse to run it. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://eatmob-crests.zemasamuel.workers.dev; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>EatMob</title>
 <meta name="description" content="Match history, player ratings and stats for Eaters, an EA SPORTS FC Clubs team.">
 <link rel="icon" type="image/png" href="assets/logo.png">
@@ -15,7 +20,7 @@
 <header class="top">
   <div class="top-in">
     <a class="brand" href="#matches" aria-label="EatMob home"><img src="assets/logo.png" class="brand-mark" alt="" aria-hidden="true">EatMob</a>
-    <nav class="nav" id="nav" aria-label="Sections">
+    <nav class="nav" aria-label="Sections">
       <a href="#matches" data-nav="matches">Matches</a>
       <a href="#stats" data-nav="stats">Stats</a>
       <a href="#squad" data-nav="squad">Squad</a>
@@ -28,9 +33,7 @@
 </header>
 <main id="view" class="wrap"></main>
 <div id="chart-tip" class="chart-tip" role="tooltip" hidden></div>
-<footer class="foot wrap"></footer>
 <script src="data/db.js"></script>
-<script src="lib/normalize.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

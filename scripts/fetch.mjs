@@ -2,10 +2,10 @@
 // Pulls the club's latest matches from EA and merges them into data/db.js.
 // EA only returns the most recent few matches per type, so run this often:
 // every run adds whatever is new and keeps everything already saved.
-import { createRequire } from 'node:module';
+// When nothing has changed the file is left alone, so there is nothing to commit.
 import { CLUB_ID, PLATFORM, API_BASE, MATCH_TYPES } from './config.mjs';
 import { readDb, writeDb } from './db-io.mjs';
-const N = createRequire(import.meta.url)('../lib/normalize.js');
+import { applyFetch } from './normalize.mjs';
 
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
@@ -19,7 +19,7 @@ async function get(path, params) {
   const url = `${API_BASE}${path}?${new URLSearchParams(params)}`;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(20000) });
+      const res = await fetch(url, { headers: HEADERS, redirect: 'error', signal: AbortSignal.timeout(20000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -46,10 +46,14 @@ if (matchCallsOk === 0) {
   process.exit(1);
 }
 
-let prev = readDb();
-if (prev && prev.sample) prev = null; // the first real fetch replaces the sample data
-const before = prev ? prev.matches.length : 0;
-const db = N.applyFetch(prev, bundle, CLUB_ID, new Date().toISOString());
-delete db.added;
-writeDb(db);
-console.log(`Saved ${db.matches.length} matches (${db.matches.length - before} new).`);
+// Compare everything except the two timestamps, which change on every run.
+const fingerprint = d => JSON.stringify([{ ...d.club, overallAsOf: null }, d.members, d.matches]);
+
+const prev = readDb();
+const db = applyFetch(prev, bundle, CLUB_ID, new Date().toISOString());
+if (prev && fingerprint(prev) === fingerprint(db)) {
+  console.log(`No new data (${db.matches.length} matches saved).`);
+} else {
+  writeDb(db);
+  console.log(`Saved ${db.matches.length} matches (${db.matches.length - (prev ? prev.matches.length : 0)} new).`);
+}

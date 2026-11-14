@@ -5,7 +5,7 @@
   "description": "Match history, ratings and player stats for the Eaters EA SPORTS FC Clubs team.",
   "scripts": {
     "fetch": "node scripts/fetch.mjs",
-    "serve": "npx --yes serve -l 4173 ."
+    "serve": "npx --yes serve@14 -l 4173 ."
   },
   "engines": { "node": ">=20" }
 }
