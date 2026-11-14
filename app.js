@@ -86,18 +86,39 @@
   function svg(cls, body) { return '<svg class="' + cls + '" viewBox="0 0 24 24" aria-hidden="true">' + body + '</svg>'; }
   var ICON_STAR = svg('i-star', '<path d="M12 1.8l3.1 6.6 7.2.9-5.3 5 1.4 7.1L12 17.9l-6.4 3.5 1.4-7.1-5.3-5 7.2-.9z"/>');
   var ICON_SHARE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
-  var ICON_BALL = svg('i-ball', (function () {
-    var out = '<circle cx="12" cy="12" r="10.6" fill="#fff" stroke="#141a18" stroke-width="1.4"/>', pent = [], k, a;
-    function at(r, deg) { var t = deg * Math.PI / 180; return (12 + r * Math.sin(t)).toFixed(1) + ',' + (12 - r * Math.cos(t)).toFixed(1); }
-    for (k = 0; k < 5; k++) {
-      a = k * 72;
-      pent.push(at(4.4, a));
-      out += '<path d="M' + at(4.4, a) + 'L' + at(7.4, a) + '" stroke="#141a18" stroke-width="1.2"/><path d="M' + at(7.2, a) + 'L' + at(10.4, a - 20) + 'L' + at(10.4, a + 20) + 'z" fill="#141a18"/>';
-    }
-    return out + '<path d="M' + pent.join('L') + 'z" fill="#141a18"/>';
-  })());
-  var ICON_BOOT = svg('i-boot', '<path d="M3.5 5.5h5.2l.9 4.1c.2 1 .9 1.8 1.9 2.1l5.9 1.9c1.9.6 3.1 2.1 3.1 3.9v.5h-17z"/><path d="M5 19.3h2.2v2H5zM10.2 19.3h2.2v2h-2.2zM15.4 19.3h2.2v2h-2.2z"/>');
-  var ICON_SUB = svg('i-sub', '<circle cx="12" cy="12" r="9" fill="#1ea55b"/><path d="M12 16V9M12 9l-3 3M12 9l3 3" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>');
+
+  /* FotMob-style goal ball SVG (outer ring + 5 pentagon dots in a circle) */
+  var ICON_BALL = svg('i-ball',
+    '<circle cx="12" cy="12" r="9.2" fill="none" stroke="#1b2220" stroke-width="1.8"/>' +
+    '<circle cx="12" cy="6.8" r="1.9" fill="#1b2220"/>' +
+    '<circle cx="16.9" cy="10.4" r="1.9" fill="#1b2220"/>' +
+    '<circle cx="15" cy="16.1" r="1.9" fill="#1b2220"/>' +
+    '<circle cx="9" cy="16.1" r="1.9" fill="#1b2220"/>' +
+    '<circle cx="7.1" cy="10.4" r="1.9" fill="#1b2220"/>'
+  );
+
+  /* FotMob-style angled cleat with 2 white stripes and studs */
+  var ICON_BOOT = svg('i-boot',
+    '<g transform="rotate(-32 12 12)">' +
+    '<path d="M3.5 14.5c0-1 .7-1.8 1.7-2l5.2-1 2.5-4.2c.3-.5.9-.7 1.4-.5l1.6.6c.4.2.6.6.5 1l-.3 2.1 4.2 1.2c1 .3 1.7 1.2 1.7 2.2v1.3c0 .6-.5 1.1-1.1 1.1H4.6c-.6 0-1.1-.5-1.1-1.1v-.7z" fill="#1b2220"/>' +
+    '<path d="M10.2 11.8l3.6.7M9.6 13.6l3.6.7" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round"/>' +
+    '<circle cx="6.2" cy="17.6" r="1" fill="#1b2220"/>' +
+    '<circle cx="9.5" cy="17.6" r="1" fill="#1b2220"/>' +
+    '<circle cx="15.8" cy="17.6" r="1" fill="#1b2220"/>' +
+    '<circle cx="18.8" cy="17.6" r="1" fill="#1b2220"/>' +
+    '</g>'
+  );
+
+  /* FotMob-style yellow and red card icons */
+  var ICON_YC = svg('i-card', '<rect x="6.5" y="4" width="11" height="16" rx="2" fill="#e5b822"/>');
+  var ICON_RC = svg('i-card', '<rect x="6.5" y="4" width="11" height="16" rx="2" fill="#e0352f"/>');
+
+  /* FotMob-style sub arrow (green circle with right-pointing arrow) */
+  var ICON_SUB = svg('i-sub',
+    '<circle cx="12" cy="12" r="10" fill="#1ea55b"/>' +
+    '<path d="M7.5 12h9M13 8.5L16.5 12 13 15.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+  );
+
   function initials(name) { var s = String(name).replace(/[^A-Za-z0-9]/g, ''); return esc((s.slice(0, 2) || '?').toUpperCase()); }
   function resChip(r) { return '<span class="res ' + r + '" title="' + ({ W: 'Win', D: 'Draw', L: 'Loss' }[r]) + '">' + r + '</span>'; }
   function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
@@ -383,7 +404,7 @@
     return h;
   }
 
-  /* Lineup marker: rating top right, sub top left, goals bottom right, assists and red card bottom left. */
+  /* Lineup marker: FotMob style circular badges around the avatar, plain player name below, no team header. */
   function evIcons(icon, n, cls) {
     if (n > 4) return '<i class="e ' + cls + '">' + icon + '<b>' + n + '</b></i>';
     var out = '';
@@ -391,18 +412,22 @@
     return out;
   }
   function pitchPlayer(p, m, us) {
-    var left = (p.redCards ? '<i class="rc" title="Red card"></i>' : '') + evIcons(ICON_BOOT, p.assists, 'as');
+    var yc = p.yellowCards || 0;
+    var cardHtml = p.redCards
+      ? '<span class="pcard" title="Red card">' + ICON_RC + '</span>'
+      : (yc ? '<span class="pcard" title="Yellow card">' + ICON_YC + '</span>' : '');
     var inner = '<span class="av">' + initials(p.name) +
-      (isSub(p, m) ? '<span class="sub" title="Subbed on at ' + subOnMin(p) + '\'">' + ICON_SUB + subOnMin(p) + '′</span>' : '') +
+      (isSub(p, m) ? '<span class="sub" title="Subbed on at ' + subOnMin(p) + '\'"><span class="sub-min">' + subOnMin(p) + '’</span><i class="sub-ic">' + ICON_SUB + '</i></span>' : '') +
       rt(p.rating, false, p.motm) +
-      (left ? '<span class="evs l"' + (p.assists ? ' title="' + p.assists + ' A"' : '') + '>' + left + '</span>' : '') +
+      cardHtml +
+      (p.assists ? '<span class="evs l" title="' + p.assists + ' A">' + evIcons(ICON_BOOT, p.assists, 'as') + '</span>' : '') +
       (p.goals ? '<span class="evs" title="' + p.goals + ' G">' + evIcons(ICON_BALL, p.goals, 'gl') + '</span>' : '') +
       '</span><span class="nm">' + esc(p.name) + '</span>';
     return us ? '<a class="pp" href="' + playerHref(p.id) + '">' + inner + '</a>' : '<div class="pp">' + inner + '</div>';
   }
   function pitchHalf(m, us) {
     var players = us ? m.players.us : m.players.them, order = us ? ['FWD', 'MID', 'DEF', 'GK'] : ['GK', 'DEF', 'MID', 'FWD'];
-    return '<div class="half"><div class="side">' + esc((us ? m.us : m.them).name) + '</div>' + order.map(function (pos) {
+    return '<div class="half">' + order.map(function (pos) {
       var ps = players.filter(function (p) { return p.pos === pos || (pos === 'MID' && p.pos === 'N/A'); });
       return ps.length ? '<div class="line">' + ps.map(function (p) { return pitchPlayer(p, m, us); }).join('') + '</div>' : '';
     }).join('') + '</div>';

@@ -220,7 +220,7 @@ a.pl:hover { background: var(--surface-2); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
 .kv dt { color: var(--muted); } .kv dd { margin: 0; text-align: right; font-weight: 600; }
 
-/* pitch */
+/* pitch (FotMob style) */
 .pitch { background: repeating-linear-gradient(180deg, var(--pitch-a) 0 56px, var(--pitch-b) 56px 112px); color: #fff; padding: 10px 8px; position: relative; overflow: hidden; }
 .pitch::before { content: ""; position: absolute; inset: 10px; border: 2px solid rgba(255,255,255,.32); border-radius: 4px; pointer-events: none; }
 .pitch::after {
@@ -235,7 +235,7 @@ a.pl:hover { background: var(--surface-2); }
   border-radius: 50%;
   pointer-events: none;
 }
-.half { display: flex; flex-direction: column; gap: 12px; padding: 14px 6px; position: relative; }
+.half { display: flex; flex-direction: column; gap: 14px; padding: 18px 6px; position: relative; }
 .half + .half { border-top: 2px solid rgba(255,255,255,.32); }
 .half::before {
   content: "";
@@ -249,22 +249,25 @@ a.pl:hover { background: var(--surface-2); }
 }
 .half:first-child::before { top: 0; border-top: 0; }
 .half:last-child::before { bottom: 0; border-bottom: 0; }
-.half .side { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .88; text-align: center; position: relative; z-index: 1; }
-.line { display: flex; justify-content: space-evenly; flex-wrap: wrap; gap: 10px 6px; padding: 6px 0; position: relative; z-index: 1; }
-.pp { width: 104px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; line-height: 1.2; text-align: center; }
-.pp .av { position: relative; width: 46px; height: 46px; border-radius: 50%; background: rgba(0,0,0,.26); border: 2px solid rgba(255,255,255,.88); display: grid; place-items: center; font: 600 14px/1 var(--font-display); letter-spacing: .02em; transition: transform .15s, background-color .15s; }
-.pp .nm { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 3px rgba(0,0,0,.65); background: rgba(0,0,0,.22); padding: 2px 7px; border-radius: 99px; }
-.pp .rt { position: absolute; top: -9px; left: 30px; min-width: 0; padding: 1px 5px; font: 700 11px/1.35 var(--font-body); border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.line { display: flex; justify-content: space-evenly; flex-wrap: wrap; gap: 12px 6px; padding: 6px 0; position: relative; z-index: 1; }
+.pp { width: 108px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; line-height: 1.2; text-align: center; }
+.pp .av { position: relative; width: 48px; height: 48px; border-radius: 50%; background: rgba(0,0,0,.26); border: 2px solid rgba(255,255,255,.9); display: grid; place-items: center; font: 600 14px/1 var(--font-display); letter-spacing: .02em; transition: transform .15s, background-color .15s; }
+.pp .nm { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.55); }
+.pp .rt { position: absolute; top: -8px; left: 28px; min-width: 0; padding: 1px 6px; font: 700 11px/1.35 var(--font-body); border-radius: 99px; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
 .pp .rt.none { background: rgba(0,0,0,.45); color: #fff; }
-.pp .sub { position: absolute; top: -8px; right: 30px; display: inline-flex; align-items: center; gap: 1px; padding: 1px 5px 1px 3px; border-radius: 99px; background: #fff; color: #141a18; font: 700 10px/1.4 var(--font-body); box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.pp .sub { position: absolute; top: -9px; right: 30px; display: inline-flex; align-items: center; gap: 3px; pointer-events: none; }
+.pp .sub-min { color: #fff; font: 700 11px/1 var(--font-body); text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+.pp .sub-ic { width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 1.5px solid #dfe4e1; display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.pp .sub-ic svg { width: 14px; height: 14px; display: block; }
+.pp .pcard { position: absolute; top: 50%; left: -11px; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 1.5px solid #dfe4e1; display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.pp .pcard svg { width: 13px; height: 13px; display: block; }
 .pp .evs { position: absolute; bottom: -7px; left: 28px; display: flex; align-items: center; }
 .pp .evs.l { left: auto; right: 28px; }
-.pp .e { position: relative; width: 18px; height: 18px; border-radius: 50%; background: #fff; color: #141a18; display: grid; place-items: center; flex: none; margin-left: -7px; box-shadow: 0 0 0 1.5px var(--pitch-a), 0 1px 3px rgba(0,0,0,.35); }
+.pp .e { position: relative; width: 21px; height: 21px; border-radius: 50%; background: #fff; border: 1.5px solid #dfe4e1; color: #1b2220; display: grid; place-items: center; flex: none; margin-left: -7px; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
 .pp .e:first-child { margin-left: 0; }
-.pp .e svg { width: 12px; height: 12px; fill: currentColor; }
-.pp .e.gl svg { width: 18px; height: 18px; }
-.pp .e b { position: absolute; top: -6px; right: -7px; min-width: 13px; padding: 0 3px; border-radius: 99px; background: #141a18; color: #fff; font: 700 9px/13px var(--font-body); text-align: center; }
-.pp .rc { flex: none; margin-right: 3px; width: 11px; height: 15px; border-radius: 2px; background: #e0352f; box-shadow: 0 0 0 1.5px #fff; transform: rotate(-8deg); }
+.pp .e svg { width: 14px; height: 14px; display: block; }
+.pp .e.gl svg { width: 15px; height: 15px; }
+.pp .e b { position: absolute; top: -5px; right: -6px; min-width: 13px; padding: 0 3px; border-radius: 99px; background: #141a18; color: #fff; font: 700 9px/13px var(--font-body); text-align: center; }
 a.pp:hover .av { border-color: #fff; background: rgba(0,0,0,.4); transform: scale(1.06); }
 
 /* stat bars */
@@ -392,7 +395,7 @@ code { background: var(--surface-2); border-radius: 5px; padding: 1px 5px; font-
   .board .score { font-size: 32px; }
   .board .team { font-size: 15px; }
   .scorers { gap: 12px 20px; }
-  .pp { width: 82px; font-size: 11px; }
+  .pp { width: 84px; font-size: 11.5px; }
   .line { gap: 14px 2px; }
   .top-in { gap: 8px; padding: 0 12px; }
   .brand { font-size: 19px; gap: 6px; }
