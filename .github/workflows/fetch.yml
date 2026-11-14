@@ -2,8 +2,8 @@ name: Fetch matches from EA
 
 on:
   schedule:
-    # Every 5 minutes is the most GitHub allows. It is a request, not a promise: GitHub
-    # often starts scheduled runs late or skips them, so real gaps can be much longer.
+    # Twice an hour, at :17 and :47 (off the hour, when GitHub is less busy). It is a request,
+    # not a promise: GitHub often starts scheduled runs late or skips them.
     - cron: "17,47 * * * *"
   workflow_dispatch:
 
