@@ -428,16 +428,19 @@ th button.on { color: var(--accent); }
 .cmptable .x:hover { color: var(--loss); }
 /* compare list */
 .cmp-list { padding: 4px 0; }
-.cmp-hdr { display: grid; grid-template-columns: 1fr repeat(var(--cmp-n, 2), 80px); gap: 0; padding: 6px 16px 4px; border-bottom: 1px solid var(--border); }
-.cmp-hdr span { font-size: 12px; font-weight: 700; text-align: center; }
+/* Value columns shrink as more players are added: clamp between 44px (many players) and 80px (2 players) */
+.cmp-hdr { display: grid; grid-template-columns: 1fr repeat(var(--cmp-n, 2), minmax(44px, 80px)); gap: 0; padding: 6px 16px 4px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.cmp-hdr span { font-size: 12px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cmp-hdr span:first-child { text-align: left; }
 .cmp-section { padding: 10px 16px 2px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.cmp-row { display: grid; grid-template-columns: 1fr repeat(var(--cmp-n, 2), 80px); gap: 0; padding: 7px 16px; border-bottom: 1px solid var(--border); align-items: center; }
+.cmp-row { display: grid; grid-template-columns: 1fr repeat(var(--cmp-n, 2), minmax(44px, 80px)); gap: 0; padding: 7px 16px; border-bottom: 1px solid var(--border); align-items: center; }
 .cmp-row:last-child { border-bottom: none; }
 .cmp-label { font-size: 13px; color: var(--c); }
 .cmp-label small { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
-.cmp-val { text-align: center; font-size: 15px; font-weight: 500; color: var(--muted); }
-.cmp-win { font-weight: 700; font-size: 16px; }
+.cmp-val { text-align: center; font-size: 14px; font-weight: 500; color: var(--muted); }
+.cmp-win { font-weight: 700; font-size: 15px; }
+/* Scroll the whole compare stat list horizontally on very small screens or large squads */
+.cmp-list { overflow-x: auto; }
 .s0c  { color: var(--c1); } .s1c  { color: var(--c2); } .s2c  { color: var(--c3); } .s3c  { color: var(--c4); }
 .s4c  { color: var(--c5); } .s5c  { color: var(--c6); } .s6c  { color: var(--c7); } .s7c  { color: var(--c8); }
 .s8c  { color: var(--c9); } .s9c  { color: var(--c10); } .s10c { color: var(--c11); }
@@ -530,14 +533,7 @@ th button.on { color: var(--accent); }
   .daytools .grp .btn { flex: 1; justify-content: center; padding: 9px 10px; }
   .squad-tools { flex-direction: column; align-items: stretch; }
   .search-in, .search-in:focus { width: 100%; }
-  .pickrow {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .pickrow::-webkit-scrollbar { display: none; }
+  .pickrow { flex-wrap: wrap; gap: 6px; }
   .pchip { flex: none; padding: 7px 13px; }
 }
 .foot a { text-decoration: underline; text-underline-offset: 2px; }

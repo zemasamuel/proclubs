@@ -26,10 +26,9 @@
     calOpen: false,
     calMonth: null,       // null = show today's month
     tab: 'facts',         // active tab on match detail view
-    squadMode: 'tracked', // 'tracked' (this-season stats) or 'ea' (career stats)
+    squadMode: 'tracked', // 'tracked' (this-season stats) | 'ea' (career stats) | 'per90'
     squadQuery: '',       // text filter on squad table
     squadPos: 'ALL',      // position filter on squad table
-    statsMode: 'tracked', // leaderboards source: 'tracked' or 'ea'
     oppQuery: '',         // text filter on opponents table
     sortK: 'rating',      // squad table sort column
     sortDir: -1,          // -1 = descending, 1 = ascending
@@ -537,21 +536,60 @@
   }
 
   function viewSquad() {
-    var tracked = ui.squadMode === 'tracked';
+    var mode = ui.squadMode; // 'tracked' | 'ea' | 'per90'
     var positions = [['ALL', 'All'], ['FWD', 'FWD'], ['MID', 'MID'], ['DEF', 'DEF'], ['GK', 'GK']];
     var h = notices() + '<div class="dayhead"><h1>Squad</h1>' +
       '<div class="seg" role="group" aria-label="Stats source">' +
-      '<button data-act="squad-mode" data-mode="tracked" aria-pressed="' + tracked + '">This season</button>' +
-      '<button data-act="squad-mode" data-mode="ea" aria-pressed="' + !tracked + '">EA career</button></div></div>' +
-      (tracked ? '' : '<p class="squad-mode-note muted small">All-time career stats from EA\'s servers</p>');
-    h += '<div class="squad-tools">' +
-      '<div class="pos-pills" role="group" aria-label="Filter by position">' +
-      positions.map(function (p) {
-        return '<button class="pos-pill" data-act="squad-pos" data-pos="' + p[0] + '" aria-pressed="' + (ui.squadPos === p[0]) + '">' + p[1] + '</button>';
-      }).join('') + '</div>' +
-      '<input class="search-in" type="search" data-filter="squad" placeholder="Search name, pro, pos…" value="' + esc(ui.squadQuery) + '" aria-label="Filter squad">' +
-      '</div>';
-    h += '<section class="card" id="squad-card">' + squadTableHtml() + '</section>';
+      '<button data-act="squad-mode" data-mode="tracked" aria-pressed="' + (mode === 'tracked') + '">This season</button>' +
+      '<button data-act="squad-mode" data-mode="ea" aria-pressed="' + (mode === 'ea') + '">Career</button>' +
+      '<button data-act="squad-mode" data-mode="per90" aria-pressed="' + (mode === 'per90') + '">Per 90</button>' +
+      '</div></div>' +
+      (mode === 'ea' ? '<p class="squad-mode-note muted small">All-time career stats from EA\'s servers</p>' : '');
+
+    if (mode === 'per90') {
+      /* Per-90 view — no position filter, just the table */
+      h += squadPer90();
+    } else {
+      /* This season / Career views — squad table with filters */
+      h += '<div class="squad-tools">' +
+        '<div class="pos-pills" role="group" aria-label="Filter by position">' +
+        positions.map(function (p) {
+          return '<button class="pos-pill" data-act="squad-pos" data-pos="' + p[0] + '" aria-pressed="' + (ui.squadPos === p[0]) + '">' + p[1] + '</button>';
+        }).join('') + '</div>' +
+        '<input class="search-in" type="search" data-filter="squad" placeholder="Search name, pro, pos…" value="' + esc(ui.squadQuery) + '" aria-label="Filter squad">' +
+        '</div>';
+      h += '<section class="card" id="squad-card">' + squadTableHtml() + '</section>';
+    }
+
+    /* Leaderboards section — shown for all modes */
+    if (idx.matches.length) {
+      var sTracked = mode !== 'ea';
+      /* For per90 mode use tracked leaderboards; ea mode uses career */
+      var leaderMode = mode === 'ea' ? 'ea' : 'tracked';
+      h += '<div class="dayhead" style="margin-top:6px"><h2>Leaderboards</h2></div>';
+      if (leaderMode === 'tracked') {
+        h += '<div class="grid2">' +
+          board('Average rating', leaders(avgRating, function (v) { return rt(v); })) +
+          board('Goals', leaders(function (a) { return a.goals; }, String)) +
+          board('Assists', leaders(function (a) { return a.assists; }, String)) +
+          board('Goals + assists', leaders(function (a) { return a.goals + a.assists; }, String)) +
+          board('Goals + assists per 90', leaders(function (a) { return per90(a.goals + a.assists, a.seconds); }, f2)) +
+          board('Player of the match', leaders(function (a) { return a.motm; }, String)) +
+          board('Pass accuracy', leaders(function (a) { return pct(a.passesMade, a.passAttempts); }, function (v) { return f1(v) + '%'; })) +
+          board('Tackles won per 90', leaders(function (a) { return per90(a.tacklesMade, a.seconds); }, f1)) + '</div>';
+      } else {
+        h += '<div class="grid2">' +
+          board('Rating', memLeaders(function (m) { return m.ratingAve || null; }, function (v) { return rt(parseFloat(f1(v))); }), gamesFnMem) +
+          board('Goals', memLeaders(function (m) { return m.goals; }, String), gamesFnMem) +
+          board('Assists', memLeaders(function (m) { return m.assists; }, String), gamesFnMem) +
+          board('Goals + assists', memLeaders(function (m) { return (m.goals || 0) + (m.assists || 0); }, String), gamesFnMem) +
+          board('Win rate', memLeaders(function (m) { return m.gamesPlayed ? m.winRate : null; }, function (v) { return v + '%'; }), gamesFnMem) +
+          board('Player of the match', memLeaders(function (m) { return m.motm; }, String), gamesFnMem) +
+          board('Pass accuracy', memLeaders(function (m) { return m.gamesPlayed ? m.passSuccessRate : null; }, function (v) { return f1(v) + '%'; }), gamesFnMem) +
+          board('Games played', memLeaders(function (m) { return m.gamesPlayed; }, String), gamesFnMem) + '</div>';
+      }
+    }
+
     view.innerHTML = h;
   }
 
@@ -706,31 +744,14 @@
   /* cmpAvail: players with at least one tracked game, eligible for compare */
   function cmpAvail() { return idx.players.filter(function (a) { return a.apps > 0; }); }
 
-  /* Default Compare selection: Zema and Faze, falling back to the two most-used players */
-  function defaultCompareIds() {
-    var avail = cmpAvail();
-    var zema = null, faze = null;
-    avail.forEach(function (a) {
-      var nm = a.name.toLowerCase();
-      var mem = db.members[a.name];
-      var pro = mem && mem.proName ? mem.proName.toLowerCase() : '';
-      if (!zema && (nm.indexOf('zema') >= 0 || pro.indexOf('zema') >= 0)) zema = a.id;
-      if (!faze && (nm.indexOf('faze') >= 0 || pro.indexOf('faze') >= 0)) faze = a.id;
-    });
-    var picked = [zema, faze].filter(Boolean);
-    if (picked.length) return picked;
-    return avail.slice().sort(function (x, y) { return y.seconds - x.seconds; }).slice(0, 2).map(function (a) { return a.id; });
-  }
-
   function cmpSelected() {
     var avail = cmpAvail(), by = {};
     avail.forEach(function (a) { by[a.id] = a; });
-    var ids = ui.cmp.sel;
-    if (ids === null) ids = defaultCompareIds();
+    var ids = ui.cmp.sel || [];
     return ids.filter(function (id) { return by[id]; }).slice(0, MAX_COMPARE).map(function (id) { return by[id]; });
   }
 
-  /* When entering Compare from a Player Card (#compare-<id>), select ONLY that player */
+  /* When entering Compare from a Player Card (#compare-<id>), pre-select that player */
   function cmpSetSingle(a) {
     ui.cmp.sel = [a.id];
   }
@@ -857,10 +878,13 @@
 
   /* ---------- club stats & leaderboards ---------- */
   /* board: render a top-5 leaderboard card */
-  function board(title, rows) {
+  /* board: render a top-5 leaderboard card.
+     gamesFn(r) — optional — returns the subtitle string for each row (defaults to tracked apps) */
+  function board(title, rows, gamesFn) {
+    var gfn = gamesFn || function (r) { return games(r.a.apps); };
     return '<section class="card"><div class="card-h"><h2>' + title + '</h2></div><div class="plist">' +
       (rows.slice(0, 5).map(function (r, i) {
-        return '<a class="pl" href="' + playerHref(r.a.id) + '"><span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(r.a.name) + '<small>' + games(r.a.apps) + '</small></span><span class="v">' + r.s + '</span></a>';
+        return '<a class="pl" href="' + playerHref(r.a.id) + '"><span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(r.a.name) + '<small>' + gfn(r) + '</small></span><span class="v">' + r.s + '</span></a>';
       }).join('') || '<div class="pl muted">None yet.</div>') + '</div></section>';
   }
   /* leaders: build sorted leaderboard rows from tracked idx.players */
@@ -870,6 +894,17 @@
       .sort(function (x, y) { return y.v - x.v || y.a.apps - x.a.apps; })
       .map(function (r) { return { a: r.a, s: fmt(r.v) }; });
   }
+
+  /* memLeaders: build sorted leaderboard rows from EA career db.members */
+  function memLeaders(valueFn, fmt) {
+    var memPlayers = idx.players.filter(function (a) { return db.members[a.name] && db.members[a.name].gamesPlayed > 0; });
+    return memPlayers.map(function (a) { return { a: a, m: db.members[a.name], v: valueFn(db.members[a.name]) }; })
+      .filter(function (r) { return r.v !== null && r.v !== undefined && r.v > 0; })
+      .sort(function (x, y) { return y.v - x.v || y.m.gamesPlayed - x.m.gamesPlayed; })
+      .map(function (r) { return { a: r.a, m: r.m, s: fmt(r.v) }; });
+  }
+  /* gamesFnMem: subtitle showing career gamesPlayed for board() rows */
+  function gamesFnMem(r) { return games(r.m ? r.m.gamesPlayed : 0); }
 
   function streakOf(ms, pred) {
     var cur = 0, best = 0;
@@ -1036,46 +1071,6 @@
         tiles([['Played', o.gamesPlayed], ['Record', o.wins + '-' + o.draws + '-' + o.losses], ['Win rate', pctS(o.wins, o.gamesPlayed)], ['Goals for', o.goals], ['Goals against', o.goalsAgainst], ['Skill rating', o.skillRating], ['Promotions', o.promotions], ['Relegations', o.relegations], ['Unbeaten run', o.unbeatenStreak], ['League games', o.leagueApps], ['Playoff games', o.playoffApps], ['Goal difference', (o.goals - o.goalsAgainst >= 0 ? '+' : '−') + Math.abs(o.goals - o.goalsAgainst)]]) + '</section>';
     }
     if (ms.length) {
-      var sTracked = ui.statsMode === 'tracked';
-      h += '<div class="dayhead" style="margin-top:6px"><h2>Leaderboards</h2>' +
-        '<div class="seg" role="group" aria-label="Stats source">' +
-        '<button data-act="stats-mode" data-mode="tracked" aria-pressed="' + sTracked + '">This season</button>' +
-        '<button data-act="stats-mode" data-mode="ea" aria-pressed="' + !sTracked + '">EA career</button>' +
-        '</div></div>';
-      var lboards;
-      if (sTracked) {
-        lboards = '<div class="grid2">' +
-          board('Average rating', leaders(avgRating, function (v) { return rt(v); })) +
-          board('Goals', leaders(function (a) { return a.goals; }, String)) +
-          board('Assists', leaders(function (a) { return a.assists; }, String)) +
-          board('Goals + assists', leaders(function (a) { return a.goals + a.assists; }, String)) +
-          board('Goals + assists per 90', leaders(function (a) { return per90(a.goals + a.assists, a.seconds); }, f2)) +
-          board('Player of the match', leaders(function (a) { return a.motm; }, String)) +
-          board('Pass accuracy', leaders(function (a) { return pct(a.passesMade, a.passAttempts); }, function (v) { return Math.round(v) + '%'; })) +
-          board('Tackles won per 90', leaders(function (a) { return per90(a.tacklesMade, a.seconds); }, f1)) + '</div>';
-      } else {
-        /* EA career stats from db.members — build a parallel leaders fn */
-        var memPlayers = idx.players.filter(function (a) { return db.members[a.name] && db.members[a.name].gamesPlayed > 0; });
-        function memLeaders(valueFn, fmt) {
-          return memPlayers.map(function (a) { return { a: a, v: valueFn(db.members[a.name]) }; })
-            .filter(function (r) { return r.v !== null && r.v !== undefined && r.v > 0; })
-            .sort(function (x, y) { return y.v - x.v || y.a.apps - x.a.apps; })
-            .map(function (r) { return { a: r.a, s: fmt(r.v) }; });
-        }
-        lboards = '<div class="grid2">' +
-          board('Rating', memLeaders(function (m) { return m.ratingAve || null; }, f2)) +
-          board('Goals', memLeaders(function (m) { return m.goals; }, String)) +
-          board('Assists', memLeaders(function (m) { return m.assists; }, String)) +
-          board('Goals + assists', memLeaders(function (m) { return (m.goals || 0) + (m.assists || 0); }, String)) +
-          board('Win rate', memLeaders(function (m) { return m.gamesPlayed ? m.winRate : null; }, function (v) { return v + '%'; })) +
-          board('Player of the match', memLeaders(function (m) { return m.motm; }, String)) +
-          board('Pass accuracy', memLeaders(function (m) { return m.gamesPlayed ? m.passSuccessRate : null; }, function (v) { return Math.round(v) + '%'; })) +
-          board('Games played', memLeaders(function (m) { return m.gamesPlayed; }, String)) + '</div>';
-      }
-      h += lboards;
-
-      h += squadPer90();
-
       var bigW = null, bigL = null, hi = null, perf = null;
       ms.forEach(function (m) {
         var d = m.us.goals - m.them.goals;
@@ -1122,7 +1117,7 @@
       if (hash.indexOf('match-') === 0 && (lastRoute || '').indexOf('match-') !== 0) ui.tab = 'facts';
       if (hash.indexOf('day-') === 0) ui.calMonth = null;
       if (hash === 'compare') {
-        ui.cmp.sel = defaultCompareIds();
+        ui.cmp.sel = [];
       } else if ((m = /^compare-([A-Za-z0-9]+)$/.exec(hash)) && idx.bySlug[m[1]] && idx.bySlug[m[1]].apps) {
         cmpSetSingle(idx.bySlug[m[1]]);
       }
@@ -1225,13 +1220,6 @@
       var cid = el.getAttribute('data-id'), ids = cmpSelected().map(function (a) { return a.id; }), at = ids.indexOf(cid);
       if (at >= 0) ids.splice(at, 1); else if (ids.length < MAX_COMPARE) ids.push(cid);
       ui.cmp.sel = ids;
-    }
-    else if (act === 'stats-mode') {
-      ui.statsMode = el.getAttribute('data-mode');
-      var sy0 = window.scrollY || window.pageYOffset;
-      render();
-      window.scrollTo(0, sy0);
-      return;
     }
     else if (act === 'squad-mode') {
       ui.squadMode = el.getAttribute('data-mode');
