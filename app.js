@@ -72,8 +72,9 @@
 
   /* Images carry no inline onerror: the page's Content-Security-Policy forbids inline script.
      Load failures are handled by the single 'error' listener at the bottom of this file. */
-  function playerImg() {
-    return '<img class="p-img" src="' + PLAYER_AVATAR_URL + '" alt="" loading="lazy" decoding="async">';
+  function playerImg(name) {
+    var src = name ? 'assets/players/' + encodeURIComponent(name) + '.jpg' : PLAYER_AVATAR_URL;
+    return '<img class="p-img" src="' + src + '" alt="" loading="lazy" decoding="async">';
   }
 
   /* Rating chip: red to green by tenth, blue with a star for player of the match. */
@@ -426,7 +427,7 @@
     var h = '';
     if (motm) {
       h += '<section class="card"><div class="card-h"><h2>Player of the match</h2></div><div class="card-b phead">' +
-        '<div class="avatar">' + playerImg() + '</div><div><div style="font-weight:700;font-size:17px">' +
+        '<div class="avatar">' + playerImg(motm.p.name) + '</div><div><div style="font-weight:700;font-size:17px">' +
         (motm.us ? '<a href="' + playerHref(motm.p.id) + '">' + esc(motm.p.name) + '</a>' : esc(motm.p.name)) + '</div>' +
         '<div class="muted small">' + esc(motm.us ? m.us.name : m.them.name) + '</div></div>' +
         '<div class="ovr">' + rt(motm.p.rating, true, true) + '</div></div></section>';
@@ -457,7 +458,7 @@
   }
   function pitchPlayer(p, m, us) {
     var cardHtml = p.redCards ? '<span class="pcard" title="Red card">' + ICON_RC + '</span>' : '';
-    var inner = '<span class="av">' + playerImg() +
+    var inner = '<span class="av">' + playerImg(p.name) +
       (isSub(p, m) ? '<span class="sub" title="Partial appearance (' + mins(p.secondsPlayed) + ' min)"><span class="sub-min">' + mins(p.secondsPlayed) + '’</span><i class="sub-ic">' + ICON_SUB + '</i></span>' : '') +
       rt(p.rating, false, p.motm) +
       cardHtml +
@@ -1083,7 +1084,7 @@
     var mem = db.members[a.name] || null, pos = mainPos(a), avg = avgRating(a);
     var role = a.apps ? insights().by[a.id].role : null;
     var h = '<div class="row" style="justify-content:space-between"><a class="btn" href="#squad">‹ Squad</a>' + (a.apps ? '<a class="btn" href="#compare-' + slug(a.id) + '">Compare players ›</a>' : '') + '</div>';
-    h += '<section class="card"><div class="card-b phead"><div class="avatar">' + playerImg() + '</div><div><h1>' + esc(a.name) + '</h1><div class="muted">' +
+    h += '<section class="card"><div class="card-b phead"><div class="avatar">' + playerImg(a.name) + '</div><div><h1>' + esc(a.name) + '</h1><div class="muted">' +
       [mem && mem.proName ? 'Pro: ' + esc(mem.proName) : '', pos ? POS_LABEL[pos] : '', role ? esc(role.label) : '', mem && mem.heightCm ? mem.heightCm + ' cm' : ''].filter(Boolean).join(' · ') + '</div></div>' +
       (mem && mem.overall ? '<div class="ovr"><b>' + mem.overall + '</b><span class="muted small">Overall</span></div>' : '') + '</div>';
     if (a.apps) {
