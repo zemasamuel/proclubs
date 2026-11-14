@@ -422,6 +422,22 @@ th button.on { color: var(--accent); }
 .cmptable td.name small { font-size: 12px; }
 .cmptable .x { border: 0; background: none; font-size: 22px; line-height: 1; color: var(--muted); padding: 2px 8px; }
 .cmptable .x:hover { color: var(--loss); }
+/* compare list */
+.cmp-list { padding: 4px 0; }
+.cmp-hdr { display: grid; grid-template-columns: 1fr repeat(var(--cmp-n, 2), 80px); gap: 0; padding: 6px 16px 4px; border-bottom: 1px solid var(--border); }
+.cmp-hdr span { font-size: 12px; font-weight: 700; text-align: center; }
+.cmp-hdr span:first-child { text-align: left; }
+.cmp-section { padding: 10px 16px 2px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.cmp-row { display: grid; grid-template-columns: 1fr repeat(var(--cmp-n, 2), 80px); gap: 0; padding: 7px 16px; border-bottom: 1px solid var(--border); align-items: center; }
+.cmp-row:last-child { border-bottom: none; }
+.cmp-label { font-size: 13px; color: var(--c); }
+.cmp-label small { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
+.cmp-val { text-align: center; font-size: 15px; font-weight: 500; color: var(--muted); }
+.cmp-win { font-weight: 700; font-size: 16px; }
+.s0c { color: var(--c1); }
+.s1c { color: var(--c2); }
+.s2c { color: var(--c3); }
+.s3c { color: var(--c4); }
 .sr { position: absolute; left: -9999px; }
 .radar { width: 100%; max-width: 640px; height: auto; display: block; margin: 0 auto; }
 .radar .ring { fill: none; stroke: var(--line); stroke-width: 1; }

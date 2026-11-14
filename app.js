@@ -767,15 +767,24 @@
     return s + '</svg>';
   }
 
+  var CMP_RADAR_AXES = ['rating', 'ga90', 'g90', 'a90', 'pass', 't90', 'motm'];
+  var CMP_ALL_STATS = [
+    { section: 'Overall' },
+    'rating', 'motm', 'ga', 'ga90',
+    { section: 'Attacking' },
+    'g90', 's90', 'conv', 'gi', 'atk_threat',
+    { section: 'Creating' },
+    'a90', 'pass', 'p90',
+    { section: 'Defending' },
+    't90', 'tpct', 'pressing_rate', 'cga90', 'cs', 'sv90'
+  ];
+
   function viewCompare() {
-    var tpl = CMP_TPL.filter(function (t) { return t.k === ui.cmp.tpl; })[0] || CMP_TPL[0];
     var avail = cmpAvail(), sel = cmpSelected();
-    var h = notices() + '<div class="dayhead"><h1>Compare</h1><span class="muted small">percentile within the squad</span></div>';
+    var h = notices() + '<div class="dayhead"><h1>Compare</h1></div>';
     if (!avail.length) { view.innerHTML = h + emptyState(); return; }
 
-    h += '<section class="card"><div class="tabs" role="tablist" aria-label="Stat template">' + CMP_TPL.map(function (t) {
-      return '<button role="tab" data-act="cmp-tpl" data-tpl="' + t.k + '" aria-selected="' + (t.k === tpl.k) + '">' + t.name + '</button>';
-    }).join('') + '</div><div class="card-b"><div class="pickrow" role="group" aria-label="Players to compare">' +
+    h += '<section class="card"><div class="card-b"><div class="pickrow" role="group" aria-label="Players to compare">' +
       avail.slice().sort(function (x, y) { return y.seconds - x.seconds || x.name.localeCompare(y.name); }).map(function (a) {
         var at = sel.indexOf(a), on = at >= 0, full = !on && sel.length >= MAX_COMPARE;
         return '<button class="pchip' + (on ? ' on s' + at : '') + '" data-act="cmp-toggle" data-id="' + esc(a.id) + '" aria-pressed="' + on + '"' + (full ? ' aria-disabled="true"' : '') + '>' +
@@ -785,28 +794,51 @@
     if (!sel.length) { view.innerHTML = h + '<div class="card"><div class="card-b muted">Pick a player above to compare.</div></div>'; return; }
 
     var pool = avail;
-    var axes = tpl.axes.map(function (k) {
+    var radarAxes = CMP_RADAR_AXES.map(function (k) {
       var mt = CMP[k];
       return { k: k, mt: mt, vals: pool.map(mt.f).filter(function (v) { return v !== null; }) };
     });
-    var extras = (tpl.tableExtra || []).map(function (k) { return { k: k, mt: CMP[k] }; });
     var rows = sel.map(function (a, i) {
-      return { a: a, i: i, cells: axes.map(function (ax) { var v = ax.mt.f(a); return { v: v, p: percentile(v, ax.vals, ax.mt.inv) }; }) };
+      return { a: a, i: i, cells: radarAxes.map(function (ax) { var v = ax.mt.f(a); return { v: v, p: percentile(v, ax.vals, ax.mt.inv) }; }) };
     });
 
-    h += '<section class="card"><div class="tw"><table class="cmptable"><thead><tr><th>Player</th>' +
-      extras.map(function (ex) { return '<th' + (ex.mt.tip ? ' title="' + esc(ex.mt.tip) + '"' : '') + ' class="extra">' + esc(ex.mt.label) + '</th>'; }).join('') +
-      axes.map(function (ax) {
-        return '<th' + (ax.mt.tip ? ' title="' + esc(ax.mt.tip) + '"' : '') + '>Pct<small>' + esc(ax.mt.label) + '</small></th>';
-      }).join('') + '<th>Min</th><th><span class="sr">Remove</span></th></tr></thead><tbody>' + rows.map(function (r) {
-      var pos = mainPos(r.a);
-      return '<tr class="s' + r.i + '"><td class="name"><a href="' + playerHref(r.a.id) + '">' + esc(r.a.name) + '</a><small>' + games(r.a.apps) + (pos ? ' · ' + POS_LABEL[pos] : '') + '</small></td>' +
-        extras.map(function (ex) { var v = ex.mt.f(r.a); return '<td class="extra">' + (v === null ? '–' : ex.mt.fmt(v)) + '</td>'; }).join('') +
-        r.cells.map(function (c, k) { return '<td><b class="pv">' + (c.p === null ? '–' : Math.round(c.p)) + '</b><small>' + (c.v === null ? '' : axes[k].mt.fmt(c.v)) + '</small></td>'; }).join('') +
-        '<td>' + mins(r.a.seconds) + '</td><td><button class="x" data-act="cmp-toggle" data-id="' + esc(r.a.id) + '" aria-label="Remove ' + esc(r.a.name) + '">×</button></td></tr>';
-    }).join('') + '</tbody></table></div></section>';
+    h += '<section class="card"><div class="card-b">' + radarSvg(radarAxes, rows) + '</div></section>';
 
-    h += '<section class="card"><div class="card-b">' + radarSvg(axes, rows) + '</div></section>';
+    /* Stat comparison list */
+    h += '<section class="card"><div class="cmp-list" style="--cmp-n:' + sel.length + '">';
+    /* header row with player names */
+    h += '<div class="cmp-hdr"><span></span>' + sel.map(function (a, i) {
+      return '<span class="s' + i + 'c">' + esc(a.name) + '</span>';
+    }).join('') + '</div>';
+
+    CMP_ALL_STATS.forEach(function (item) {
+      if (item && item.section) {
+        h += '<div class="cmp-section">' + esc(item.section) + '</div>';
+        return;
+      }
+      var k = item, mt = CMP[k];
+      if (!mt) return;
+      var vals = sel.map(function (a) { return mt.f(a); });
+      /* find winner: highest value (or lowest if inv) among non-null vals */
+      var winnerIdx = null;
+      if (sel.length >= 2) {
+        var best = null;
+        vals.forEach(function (v, i) {
+          if (v === null) return;
+          if (best === null) { best = v; winnerIdx = i; return; }
+          var better = mt.inv ? v < best : v > best;
+          if (better) { best = v; winnerIdx = i; }
+          else if (v === best) winnerIdx = -1; /* tie */
+        });
+      }
+      h += '<div class="cmp-row"><span class="cmp-label">' + esc(mt.label) + (mt.tip ? '<small class="muted"> ' + esc(mt.tip) + '</small>' : '') + '</span>' +
+        vals.map(function (v, i) {
+          var win = winnerIdx === i;
+          return '<span class="cmp-val' + (win ? ' s' + i + 'c cmp-win' : '') + '">' + (v === null ? '–' : mt.fmt(v)) + '</span>';
+        }).join('') + '</div>';
+    });
+
+    h += '</div></section>';
     view.innerHTML = h;
   }
 
