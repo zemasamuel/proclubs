@@ -366,7 +366,7 @@
     var h = '';
     if (motm) {
       h += '<section class="card"><div class="card-h"><h2>Player of the match</h2></div><div class="card-b phead">' +
-        '<div class="avatar">' + playerImg(motm.p.id) + '</div><div><div style="font-weight:700;font-size:17px">' +
+        '<div class="avatar">' + playerImg() + '</div><div><div style="font-weight:700;font-size:17px">' +
         (motm.us ? '<a href="' + playerHref(motm.p.id) + '">' + esc(motm.p.name) + '</a>' : esc(motm.p.name)) + '</div>' +
         '<div class="muted small">' + esc(motm.us ? m.us.name : m.them.name) + '</div></div>' +
         '<div class="ovr">' + rt(motm.p.rating, true, true) + '</div></div></section>';
@@ -400,7 +400,7 @@
     var cardHtml = p.redCards
       ? '<span class="pcard" title="Red card">' + ICON_RC + '</span>'
       : (yc ? '<span class="pcard" title="Yellow card">' + ICON_YC + '</span>' : '');
-    var inner = '<span class="av">' + playerImg(p.id) +
+    var inner = '<span class="av">' + playerImg() +
       (isSub(p, m) ? '<span class="sub" title="Subbed on at ' + subOnMin(p) + '\'"><span class="sub-min">' + subOnMin(p) + '’</span><i class="sub-ic">' + ICON_SUB + '</i></span>' : '') +
       rt(p.rating, false, p.motm) +
       cardHtml +
@@ -487,7 +487,7 @@
     var q = ui.squadQuery.trim().toLowerCase();
     var posFilter = ui.squadPos;
     var cols = tracked
-      ? [['rating', 'Rating'], ['mins', 'Min'], ['apps', 'Apps'], ['motm', 'MOTM'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['ga90', 'G+A /90'], ['pass', 'Pass %'], ['tackles', 'Tkl'], ['shots', 'Shots'], ['saves', 'Saves'], ['cs', 'CS']]
+      ? [['rating', 'Rating'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['ga90', 'G+A /90'], ['pass', 'Pass %'], ['tackles', 'Tkl'], ['shots', 'Shots'], ['saves', 'Saves'], ['cs', 'CS'], ['mins', 'Min'], ['apps', 'Apps'], ['motm', 'MOTM']]
       : [['rating', 'Rating'], ['apps', 'Games'], ['motm', 'MOTM'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['win', 'Win %'], ['pass', 'Pass %'], ['ovr', 'OVR']];
     if (!cols.some(function (c) { return c[0] === ui.sortK; })) { ui.sortK = 'rating'; ui.sortDir = -1; }
     var rows = idx.players.map(function (a) {
@@ -599,7 +599,7 @@
   function viewPlayer(a) {
     var mem = db.members[a.name] || null, pos = mainPos(a), avg = avgRating(a);
     var h = '<div class="row" style="justify-content:space-between"><a class="btn" href="#squad">‹ Squad</a>' + (a.apps ? '<a class="btn" href="#compare-' + slug(a.id) + '">Compare players ›</a>' : '') + '</div>';
-    h += '<section class="card"><div class="card-b phead"><div class="avatar">' + playerImg(a.id) + '</div><div><h1>' + esc(a.name) + '</h1><div class="muted">' +
+    h += '<section class="card"><div class="card-b phead"><div class="avatar">' + playerImg() + '</div><div><h1>' + esc(a.name) + '</h1><div class="muted">' +
       [mem && mem.proName ? 'Pro: ' + esc(mem.proName) : '', pos ? POS_LABEL[pos] : '', mem && mem.heightCm ? mem.heightCm + ' cm' : ''].filter(Boolean).join(' · ') + '</div></div>' +
       (mem && mem.overall ? '<div class="ovr"><b>' + mem.overall + '</b><span class="muted small">Overall</span></div>' : '') + '</div>';
     if (a.apps) {
