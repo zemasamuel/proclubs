@@ -487,7 +487,7 @@
     var q = ui.squadQuery.trim().toLowerCase();
     var posFilter = ui.squadPos;
     var cols = tracked
-      ? [['rating', 'Rating'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['ga90', 'G+A /90'], ['pass', 'Pass %'], ['tackles', 'Tkl'], ['shots', 'Shots'], ['saves', 'Saves'], ['cs', 'CS'], ['mins', 'Min'], ['apps', 'Apps'], ['motm', 'MOTM']]
+      ? [['rating', 'Rating'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['ga90', 'G+A /90'], ['pass', 'Pass %'], ['tackles', 'Tkl'], ['mins', 'Min'], ['apps', 'Apps'], ['motm', 'MOTM']]
       : [['rating', 'Rating'], ['apps', 'Games'], ['motm', 'MOTM'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['win', 'Win %'], ['pass', 'Pass %'], ['ovr', 'OVR']];
     if (!cols.some(function (c) { return c[0] === ui.sortK; })) { ui.sortK = 'rating'; ui.sortDir = -1; }
     var rows = idx.players.map(function (a) {
@@ -534,7 +534,7 @@
       '<div class="seg" role="group" aria-label="Stats source">' +
       '<button data-act="squad-mode" data-mode="tracked" aria-pressed="' + tracked + '">This season</button>' +
       '<button data-act="squad-mode" data-mode="ea" aria-pressed="' + !tracked + '">EA career</button></div></div>' +
-      '<p class="squad-mode-note muted small">' + (tracked ? 'Stats from matches tracked on this site' : 'All-time career stats from EA\'s servers') + '</p>';
+      (tracked ? '' : '<p class="squad-mode-note muted small">All-time career stats from EA\'s servers</p>');
     h += '<div class="squad-tools">' +
       '<div class="pos-pills" role="group" aria-label="Filter by position">' +
       positions.map(function (p) {
@@ -581,6 +581,7 @@
       ['Avg rating', avgRating, f2],
       ['Goals /90', function (p) { return per90(p.goals, p.seconds); }, f2],
       ['Assists /90', function (p) { return per90(p.assists, p.seconds); }, f2],
+      ['G+A /90', function (p) { return per90(p.goals + p.assists, p.seconds); }, f2],
       ['Shots /90', function (p) { return per90(p.tries, p.seconds); }, f1],
       ['Pass accuracy', function (p) { return pct(p.passesMade, p.passAttempts); }, pctF],
       ['Tackles won /90', function (p) { return per90(p.tacklesMade, p.seconds); }, f1]
@@ -1015,14 +1016,14 @@
             .map(function (r) { return { a: r.a, s: fmt(r.v) }; });
         }
         lboards = '<div class="grid2">' +
-          board('Rating (career avg)', memLeaders(function (m) { return m.ratingAve || null; }, f2)) +
-          board('Goals (career)', memLeaders(function (m) { return m.goals; }, String)) +
-          board('Assists (career)', memLeaders(function (m) { return m.assists; }, String)) +
-          board('Goals + assists (career)', memLeaders(function (m) { return (m.goals || 0) + (m.assists || 0); }, String)) +
-          board('Win rate (career)', memLeaders(function (m) { return m.gamesPlayed ? m.winRate : null; }, function (v) { return v + '%'; })) +
-          board('Player of the match (career)', memLeaders(function (m) { return m.motm; }, String)) +
-          board('Pass accuracy (career)', memLeaders(function (m) { return m.gamesPlayed ? m.passSuccessRate : null; }, function (v) { return Math.round(v) + '%'; })) +
-          board('Games played (career)', memLeaders(function (m) { return m.gamesPlayed; }, String)) + '</div>';
+          board('Rating', memLeaders(function (m) { return m.ratingAve || null; }, f2)) +
+          board('Goals', memLeaders(function (m) { return m.goals; }, String)) +
+          board('Assists', memLeaders(function (m) { return m.assists; }, String)) +
+          board('Goals + assists', memLeaders(function (m) { return (m.goals || 0) + (m.assists || 0); }, String)) +
+          board('Win rate', memLeaders(function (m) { return m.gamesPlayed ? m.winRate : null; }, function (v) { return v + '%'; })) +
+          board('Player of the match', memLeaders(function (m) { return m.motm; }, String)) +
+          board('Pass accuracy', memLeaders(function (m) { return m.gamesPlayed ? m.passSuccessRate : null; }, function (v) { return Math.round(v) + '%'; })) +
+          board('Games played', memLeaders(function (m) { return m.gamesPlayed; }, String)) + '</div>';
       }
       h += lboards;
 
