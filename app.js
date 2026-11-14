@@ -65,8 +65,11 @@
   function mins(sec) { return Math.round(sec / 60); }
   function games(n) { return n + (n === 1 ? ' game' : ' games'); }
 
-  function playerImg() {
-    return '<img class="p-img" src="' + PLAYER_AVATAR_URL + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + PLAYER_AVATAR_FALLBACK + '\'">';
+  function playerImg(playerId) {
+    var src = playerId
+      ? 'https://www.fotmob.com/image_resources/playerimages/' + playerId + '.png'
+      : PLAYER_AVATAR_URL;
+    return '<img class="p-img" src="' + src + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + PLAYER_AVATAR_URL + '\'">';
   }
 
   /* Rating chip: red to green by tenth, blue with a star for player of the match. */
@@ -366,7 +369,7 @@
     var h = '';
     if (motm) {
       h += '<section class="card"><div class="card-h"><h2>Player of the match</h2></div><div class="card-b phead">' +
-        '<div class="avatar">' + playerImg() + '</div><div><div style="font-weight:700;font-size:17px">' +
+        '<div class="avatar">' + playerImg(motm.p.id) + '</div><div><div style="font-weight:700;font-size:17px">' +
         (motm.us ? '<a href="' + playerHref(motm.p.id) + '">' + esc(motm.p.name) + '</a>' : esc(motm.p.name)) + '</div>' +
         '<div class="muted small">' + esc(motm.us ? m.us.name : m.them.name) + '</div></div>' +
         '<div class="ovr">' + rt(motm.p.rating, true, true) + '</div></div></section>';
@@ -400,7 +403,7 @@
     var cardHtml = p.redCards
       ? '<span class="pcard" title="Red card">' + ICON_RC + '</span>'
       : (yc ? '<span class="pcard" title="Yellow card">' + ICON_YC + '</span>' : '');
-    var inner = '<span class="av">' + playerImg() +
+    var inner = '<span class="av">' + playerImg(p.id) +
       (isSub(p, m) ? '<span class="sub" title="Subbed on at ' + subOnMin(p) + '\'"><span class="sub-min">' + subOnMin(p) + '’</span><i class="sub-ic">' + ICON_SUB + '</i></span>' : '') +
       rt(p.rating, false, p.motm) +
       cardHtml +
@@ -487,12 +490,12 @@
     var q = ui.squadQuery.trim().toLowerCase();
     var posFilter = ui.squadPos;
     var cols = tracked
-      ? [['rating', 'Rating'], ['apps', 'Apps'], ['mins', 'Min'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['ga90', 'G+A /90'], ['pass', 'Pass %'], ['motm', 'MOTM']]
-      : [['rating', 'Rating'], ['ovr', 'OVR'], ['apps', 'Games'], ['win', 'Win %'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['pass', 'Pass %'], ['motm', 'MOTM']];
+      ? [['rating', 'Rating'], ['mins', 'Min'], ['apps', 'Apps'], ['motm', 'MOTM'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['ga90', 'G+A /90'], ['pass', 'Pass %'], ['tackles', 'Tkl'], ['shots', 'Shots'], ['saves', 'Saves'], ['cs', 'CS']]
+      : [['rating', 'Rating'], ['apps', 'Games'], ['motm', 'MOTM'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['win', 'Win %'], ['pass', 'Pass %'], ['ovr', 'OVR']];
     if (!cols.some(function (c) { return c[0] === ui.sortK; })) { ui.sortK = 'rating'; ui.sortDir = -1; }
     var rows = idx.players.map(function (a) {
       var mem = db.members[a.name] || null, v, pos = mainPos(a);
-      if (tracked) v = { apps: a.apps, mins: mins(a.seconds), goals: a.goals, assists: a.assists, ga: a.goals + a.assists, ga90: per90(a.goals + a.assists, a.seconds), pass: pct(a.passesMade, a.passAttempts), motm: a.motm, rating: avgRating(a) };
+      if (tracked) v = { apps: a.apps, mins: mins(a.seconds), goals: a.goals, assists: a.assists, ga: a.goals + a.assists, ga90: per90(a.goals + a.assists, a.seconds), pass: pct(a.passesMade, a.passAttempts), motm: a.motm, rating: avgRating(a), tackles: a.tacklesMade, shots: a.tries, saves: a.saves, cs: a.cleanSheets };
       else v = mem ? { apps: mem.gamesPlayed, win: mem.gamesPlayed ? mem.winRate : null, goals: mem.goals, assists: mem.assists, ga: (mem.goals || 0) + (mem.assists || 0), pass: mem.gamesPlayed ? mem.passSuccessRate : null, motm: mem.motm, ovr: mem.overall || null, rating: mem.ratingAve || null } : null;
       return { a: a, mem: mem, pos: pos, v: v };
     }).filter(function (r) {
@@ -599,7 +602,7 @@
   function viewPlayer(a) {
     var mem = db.members[a.name] || null, pos = mainPos(a), avg = avgRating(a);
     var h = '<div class="row" style="justify-content:space-between"><a class="btn" href="#squad">‹ Squad</a>' + (a.apps ? '<a class="btn" href="#compare-' + slug(a.id) + '">Compare players ›</a>' : '') + '</div>';
-    h += '<section class="card"><div class="card-b phead"><div class="avatar">' + playerImg() + '</div><div><h1>' + esc(a.name) + '</h1><div class="muted">' +
+    h += '<section class="card"><div class="card-b phead"><div class="avatar">' + playerImg(a.id) + '</div><div><h1>' + esc(a.name) + '</h1><div class="muted">' +
       [mem && mem.proName ? 'Pro: ' + esc(mem.proName) : '', pos ? POS_LABEL[pos] : '', mem && mem.heightCm ? mem.heightCm + ' cm' : ''].filter(Boolean).join(' · ') + '</div></div>' +
       (mem && mem.overall ? '<div class="ovr"><b>' + mem.overall + '</b><span class="muted small">Overall</span></div>' : '') + '</div>';
     if (a.apps) {
