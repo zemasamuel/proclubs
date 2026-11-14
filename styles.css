@@ -59,6 +59,8 @@ p { margin: 0; }
 .top { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
 .top-in { max-width: 860px; margin: 0 auto; padding: 0 16px; display: flex; align-items: center; gap: 20px; height: 54px; }
 .brand { font: 800 22px/1 var(--font-display); letter-spacing: -.03em; display: flex; align-items: center; gap: 8px; }
+.theme-toggle { background: none; border: none; cursor: pointer; font-size: 18px; padding: 4px 6px; border-radius: 8px; line-height: 1; margin-left: 4px; }
+.theme-toggle:hover { background: var(--surface-2); }
 .brand-mark { width: 28px; height: 28px; border-radius: 6px; display: block; object-fit: contain; }
 .nav { display: flex; gap: 4px; overflow-x: auto; margin-left: auto; scrollbar-width: none; }
 .nav::-webkit-scrollbar { display: none; }

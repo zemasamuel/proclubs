@@ -324,6 +324,7 @@
       '<div class="board"><div class="team">' + crest(m.us, 64) + '<span>' + esc(m.us.name) + '</span></div><div class="score">' + m.us.goals + ' – ' + m.them.goals + '</div><div class="team">' + crest(m.them, 64) + '<span>' + esc(m.them.name) + '</span></div></div>' +
       '<div class="row" style="justify-content:center">' + resChip(m.result) + '<span class="muted small">' + (m.dnf ? 'Ended early (DNF)' : 'Full time') + '</span></div>' +
       '<div class="scorers"><div>' + scorerList(m.players.us, m.us.goals) + '</div><div>' + scorerList(m.players.them, m.them.goals) + '</div></div></div>';
+    h += '<div style="text-align:right;padding:4px 0 0"><button class="btn" data-act="share-match" data-url="' + esc(location.href.split('#')[0] + '#match-' + slug(m.id)) + '">Share match 🔗</button></div>';
     var tabs = [['facts', 'Facts'], ['lineup', 'Lineup'], ['stats', 'Stats'], ['players', 'Player stats']];
     h += '<div class="tabs" role="tablist">' + tabs.map(function (t) {
       return '<button role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (ui.tab === t[0]) + '">' + t[1] + '</button>';
@@ -1032,8 +1033,36 @@
     else if (act === 'per90-sort') { var pk = el.getAttribute('data-k'); if (ui.per90Sort.k === pk) ui.per90Sort.dir = -ui.per90Sort.dir; else { ui.per90Sort.k = pk; ui.per90Sort.dir = -1; } }
     else if (act === 'import') doImport();
     else if (act === 'import-clear') { writeImport(null); ui.importMsg = { ok: true, text: 'Removed.' }; reload(); }
+    else if (act === 'share-match') {
+      var url = el.getAttribute('data-url');
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(function () {
+          el.textContent = 'Copied! ✓';
+          setTimeout(function () { el.textContent = 'Share match 🔗'; }, 2000);
+        });
+      } else {
+        window.prompt('Copy this link:', url);
+      }
+      return;
+    }
     render();
   });
+
+  /* dark mode toggle */
+  var themeBtn = document.getElementById('themeToggle');
+  function applyTheme(dark) {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    if (themeBtn) themeBtn.textContent = dark ? '☀️' : '🌙';
+  }
+  var savedTheme = localStorage.getItem('eatmob-theme');
+  var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(savedTheme ? savedTheme === 'dark' : prefersDark);
+  if (themeBtn) themeBtn.addEventListener('click', function () {
+    var dark = document.documentElement.getAttribute('data-theme') !== 'dark';
+    applyTheme(dark);
+    localStorage.setItem('eatmob-theme', dark ? 'dark' : 'light');
+  });
+
   window.addEventListener('hashchange', render);
   if (compactMq && compactMq.addEventListener) compactMq.addEventListener('change', function () { if (/^compare/.test((location.hash || '').replace(/^#/, ''))) render(); });
   document.addEventListener('error', function (e) {
