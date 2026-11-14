@@ -1,11 +1,7 @@
 name: Fetch matches from EA
 
 on:
-  schedule:
-    # Twice an hour, at :17 and :47 (off the hour, when GitHub is less busy). It is a request,
-    # not a promise: GitHub often starts scheduled runs late or skips them.
-    - cron: "17,47 * * * *"
-  workflow_dispatch:
+  workflow_dispatch: # triggered by Vercel cron every 15 minutes via /api/trigger
 
 # Nothing is allowed by default; the one job below asks for the single permission it needs.
 permissions: {}

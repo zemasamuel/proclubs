@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/trigger",
+      "schedule": "*/15 * * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
