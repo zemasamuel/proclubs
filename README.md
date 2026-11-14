@@ -9,7 +9,7 @@ A static site: `index.html`, `styles.css`, `app.js`, and the data in `data/db.js
 ## What it shows
 
 - **Matches** – a date strip and calendar; pick a day to see every game played that night, with scores, results, the team rating, and the night's best-rated players and scorers.
-- **Match page** – score, scorers, player of the match, lineup on a pitch with EA ratings (a sub arrow and minutes played for anyone who didn't play the full game), team stat comparison, and sortable player stat tables for both clubs. Each match has a share link.
+- **Match page** – score, scorers, player of the match, lineup on a pitch with EA ratings and an icon for every goal and assist, team stat comparison, and sortable player stat tables for both clubs. Subs get an arrow: green → with the minute they came on, red ← with the minute they went off, or grey ↔ with minutes played when the direction can't be told (worked out from whether the player was in the game before it that night). Opponents we've played more than once get a Head-to-Head tab listing every meeting. Each match has a share link.
 - **Insights** – player-only analysis from the saved games:
   - trophy cabinet (Golden Boot, Playmaker, Sharpshooter, Clutch, Mr Reliable and more)
   - a table with each player's role, last-10 rating sparkline, form, rating swing, points per game with and without them, and close-game rating
@@ -18,12 +18,7 @@ A static site: `index.html`, `styles.css`, `app.js`, and the data in `data/db.js
   - a "who wins together" grid of win % for every pair of regulars
 
   Everything is worked out again on every visit, so roles and awards change as new games come in.
-- **Squad** – four views:
-  - This season: sortable table from saved matches, with position filter and search
-  - Career: EA's all-time totals
-  - Per 90
-  - Compare: radar chart and side-by-side stat list for any number of players; values are percentile ranks within the squad
-- **Player profile** – rating chart, insights, per-90 numbers, shot conversion, pass and tackle accuracy, goal involvement, results with the player, position split, squad ranking, EA career totals and a match log.
+- **Compare** – pick any of our players and rank them against the forwards, midfielders, defenders or goalkeepers we've played with or against (90+ minutes, grouped by the position they've played most). Each group has its own six radar stats, ordered so the shape reads as a profile; a point is the share of that group the player beats. A side-by-side stat list sits underneath.
 - **Stats** – club record and form, then:
   - season arc (points per game over the last 5 games)
   - record by game of the night, by number of real players, and by kind of game
@@ -31,6 +26,11 @@ A static site: `index.html`, `styles.css`, `app.js`, and the data in `data/db.js
   - per-game team stats against opponents, trends and streaks
   - time of day, EA all-time club record, records, by competition
   - a scrollable opponents list
+- **Squad** – three views:
+  - This season: sortable table from saved matches, with position filter and search
+  - Career: EA's all-time totals
+  - Per 90
+- **Player profile** – rating chart, insights, per-90 numbers, shot conversion, pass and tackle accuracy, goal involvement, results with the player, position split, squad ranking, EA career totals and a match log.
 
 ## How the data stays up to date
 

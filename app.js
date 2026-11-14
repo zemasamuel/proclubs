@@ -27,7 +27,7 @@
     calOpen: false,
     calMonth: null,       // null = show today's month
     tab: 'facts',         // active tab on match detail view
-    squadMode: 'tracked', // 'tracked' (this season) | 'ea' (career) | 'per90' | 'compare'
+    squadMode: 'tracked', // 'tracked' (this season) | 'ea' (career) | 'per90'
     squadQuery: '',       // text filter on squad table
     squadPos: 'ALL',      // position filter on squad table
     oppQuery: '',         // text filter on opponents table
@@ -650,7 +650,7 @@
       board('Tackles won per 90', leaders(function (a) { return per90(a.tacklesMade, a.seconds); }, f1)) + '</div>';
   }
 
-  var SQUAD_MODES = [['tracked', 'This season'], ['ea', 'Career'], ['per90', 'Per 90'], ['compare', 'Compare']];
+  var SQUAD_MODES = [['tracked', 'This season'], ['ea', 'Career'], ['per90', 'Per 90']];
   function viewSquad() {
     var mode = ui.squadMode;
     var h = '<div class="dayhead"><h1>Squad</h1><div class="seg" role="group" aria-label="Squad view">' +
@@ -658,7 +658,6 @@
         return '<button data-act="squad-mode" data-mode="' + m[0] + '" aria-pressed="' + (mode === m[0]) + '">' + m[1] + '</button>';
       }).join('') + '</div></div>';
 
-    if (mode === 'compare') { view.innerHTML = h + compareHtml(); return; }
 
     if (mode === 'per90') {
       h += squadPer90();
@@ -1308,7 +1307,7 @@
     't90', 'tpct', 'pressing_rate', 'cga90', 'cs', 'sv90'
   ];
 
-  /* compareHtml: the compare body, shared by viewCompare and the Squad > Compare toggle */
+  /* compareHtml: the body of the Compare tab */
   function compareHtml() {
     var avail = cmpAvail(), sel = cmpSelected();
     var h = '';
@@ -1735,13 +1734,12 @@
       if (lastRoute !== null) window.scrollTo(0, 0);
       if (hash.indexOf('match-') === 0 && (lastRoute || '').indexOf('match-') !== 0) ui.tab = 'facts';
       if (hash.indexOf('day-') === 0) ui.calMonth = null;
-      /* #compare starts empty; #compare-<player> (from a player page) starts with that player picked */
-      if (hash === 'compare') ui.cmpSel = [];
-      else if ((m = /^compare-([A-Za-z0-9]+)$/.exec(hash)) && idx.bySlug[m[1]] && idx.bySlug[m[1]].apps) ui.cmpSel = [idx.bySlug[m[1]].id];
+      /* #compare keeps the current picks; #compare-<player> (from a player page) starts with that player picked */
+      if ((m = /^compare-([A-Za-z0-9]+)$/.exec(hash)) && idx.bySlug[m[1]] && idx.bySlug[m[1]].apps) ui.cmpSel = [idx.bySlug[m[1]].id];
       lastRoute = hash;
     }
     view.classList.toggle('anim', routeChanged);
-    if (/^compare(-[A-Za-z0-9]+)?$/.test(hash)) { setNav('squad'); ui.squadMode = 'compare'; return viewSquad(); }
+    if (/^compare(-[A-Za-z0-9]+)?$/.test(hash)) { setNav('compare'); return viewCompare(); }
     if (hash === 'squad') { setNav('squad'); return viewSquad(); }
     if (hash === 'insights') { setNav('insights'); return viewInsights(); }
     if (hash === 'stats') { setNav('stats'); return viewStats(); }
