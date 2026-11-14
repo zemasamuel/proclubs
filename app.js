@@ -37,7 +37,8 @@
     cmpGroup: null,       // compare: position group the radar ranks against; null = the first pick's position
     matchSort: { k: 'rating', dir: -1 },   // match detail player-table sort
     per90Sort: { k: 'mins', dir: -1 },     // squad per-90 table sort
-    insSort: { k: 'impact', dir: -1 }      // squad insights table sort
+    insSort: { k: 'impact', dir: -1 },     // squad insights table sort
+    splitSort: { k: null, dir: -1 }        // Stats > When… table sort; null = the list's own order
   };
   var db, idx;
 
@@ -999,24 +1000,21 @@
       var bg = self || Math.abs(diff) < 1 ? '' : ' style="background:color-mix(in srgb, var(--' + (diff > 0 ? 'win' : 'loss') + ') ' + Math.round(k) + '%, transparent)"';
       return '<td class="duo-c' + (self ? ' duo-self' : '') + '"' + bg + ' title="' + recordOf(t) + ' in ' + games(t.P) + '"><b>' + Math.round(w) + '%</b><small>' + t.P + ' gp</small></td>';
     }
-    var h = '<section class="card"><div class="card-h"><h2>Who wins together</h2><span class="muted small">win % when both play · club ' + Math.round(base) + '%</span></div>' +
+    var h = '<section class="card"><div class="card-h"><h2>Who wins together</h2></div>' +
       '<div class="tw"><table class="duo"><thead><tr><th></th>' + regs.map(function (a) { return '<th title="' + esc(a.name) + '">' + esc(shortName(a.name)) + '</th>'; }).join('') + '</tr></thead><tbody>';
     regs.forEach(function (a) {
       h += '<tr><td class="name">' + playerLink(a) + '</td>' + regs.map(function (b) {
         return a === b ? cell({ P: a.apps, W: a.W, D: a.D, L: a.L }, true) : cell(ins.duos[a.id + '|' + b.id], false);
       }).join('') + '</tr>';
     });
-    return h + '</tbody></table></div><p class="duo-key muted small">Green: the club wins more often than usual when both play. Red: less often. Grey: the player\'s own record. Pairs need ' + INS_MIN_GAMES + ' games together.</p></section>';
+    return h + '</tbody></table></div></section>';
   }
 
   function insightsPageHtml() {
     if (!idx.matches.length) return emptyState();
     var ins = insights();
     return trophyCabinetHtml(ins) + insightsTableHtml(ins) +
-      '<div class="grid2">' + linkupsHtml(ins) + bestFiveHtml(ins) + '</div>' + duoGridHtml(ins) +
-      '<p class="note">Worked out from the ' + games(idx.matches.length) + ' saved here, again on every visit, so roles, awards and form move as new games come in. ' +
-      'Form compares a player\'s latest rated games with the ones before. With and without need ' + INS_MIN_GAMES + ' games each, and a close game is a draw or a one-goal result. ' +
-      'EA doesn\'t say who assisted whom, so a linkup counts games where one player had an assist and the other scored.</p>';
+      '<div class="grid2">' + linkupsHtml(ins) + bestFiveHtml(ins) + '</div>' + duoGridHtml(ins);
   }
 
   /* Player page > Insights: the same findings written out for one player */
@@ -1335,7 +1333,7 @@
     h += '<section class="card"><div class="card-b"><div class="radar-grp"><span class="muted small">Rank against</span><div class="seg" role="group" aria-label="Position group to rank against">' +
       CMP_GROUPS.map(function (g) { return '<button data-act="cmp-group" data-g="' + g.k + '" aria-pressed="' + (g === grp) + '">' + g.label + '</button>'; }).join('') + '</div></div>' +
       radarSvg(radarAxes, rows) +
-      '<p class="muted small radar-note">Ranked against ' + pool.length + ' ' + grp.plural + ' with 90+ minutes in our games: ' + ours + ' of ours and ' + (pool.length - ours) + ' opponents. 50 is the middle of that group.' +
+      '<p class="muted small radar-note">Ranked against ' + pool.length + ' ' + grp.plural + ' with 90+ minutes in our games: ' + ours + ' of ours and ' + (pool.length - ours) + ' opponents.' +
       (pool.length < 15 ? ' A small group, so each player moves the scale a lot.' : '') +
       (thin.length ? ' ' + esc(thin.map(function (a) { return a.name; }).join(', ')) + (thin.length === 1 ? ' has' : ' have') + ' under 90 minutes, so treat ' + (thin.length === 1 ? 'that shape' : 'those shapes') + ' loosely.' : '') + '</p></div></section>';
 
@@ -1553,7 +1551,7 @@
     var count = dict(), order = ms.map(function (m) { count[m.day] = (count[m.day] || 0) + 1; return count[m.day]; });
     var rows = NIGHT_SLOTS.map(function (s) { return { s: s, ms: ms.filter(function (m, i) { return order[i] >= s[2] && order[i] <= s[3]; }) }; })
       .filter(function (r) { return r.ms.length; });
-    return '<section class="card"><div class="card-h"><h2>Game of the night</h2><span class="muted small">' + games(Object.keys(count).length).replace('game', 'night') + '</span></div><div class="tw"><table><thead><tr><th>Game</th>' + REC_HEAD + '</tr></thead><tbody>' +
+    return '<section class="card"><div class="card-h"><h2>Game of the night</h2></div><div class="tw"><table><thead><tr><th>Game</th>' + REC_HEAD + '</tr></thead><tbody>' +
       rows.map(function (r) { return recRow(r.s[0], '', r.ms); }).join('') + '</tbody></table></div></section>';
   }
 
@@ -1563,11 +1561,15 @@
     ms.forEach(function (m) { var n = m.stats.us.humans; (sizes[n] = sizes[n] || []).push(m); });
     var keys = Object.keys(sizes).map(Number).filter(function (n) { return n > 0; }).sort(function (a, b) { return a - b; });
     if (!keys.length) return '';
-    return '<section class="card"><div class="card-h"><h2>Numbers on the pitch</h2><span class="muted small">real players on our side</span></div><div class="tw"><table><thead><tr><th>Players</th>' + REC_HEAD + '</tr></thead><tbody>' +
+    return '<section class="card"><div class="card-h"><h2>Numbers on the pitch</h2></div><div class="tw"><table><thead><tr><th>Players</th>' + REC_HEAD + '</tr></thead><tbody>' +
       keys.map(function (n) { return recRow(n + (n === 1 ? ' player' : ' players'), '', sizes[n]); }).join('') + '</tbody></table></div></section>';
   }
 
   /* splitsHtml: the club's record in different kinds of game */
+  var SPLIT_COLS = [
+    ['P', 'P', function (t) { return t.P; }], ['W', 'W', function (t) { return t.W; }], ['D', 'D', function (t) { return t.D; }], ['L', 'L', function (t) { return t.L; }],
+    ['gd', 'GF–GA', function (t) { return t.GF - t.GA; }], ['win', 'Win %', function (t) { return t.P ? t.W / t.P : 0; }]
+  ];
   function splitsHtml(ms) {
     var rows = [
       ['Scoring 3 or more', function (m) { return m.us.goals >= 3; }],
@@ -1578,8 +1580,15 @@
       ['Completing more passes', function (m) { return m.stats.us.passesMade > m.stats.them.passesMade; }],
       ['More players than them', function (m) { return m.stats.us.humans > m.stats.them.humans; }, 'real players'],
       ['Fewer players than them', function (m) { return m.stats.us.humans < m.stats.them.humans; }, 'real players']
-    ].map(function (r) { return { label: r[0], sub: r[2] || '', ms: ms.filter(r[1]) }; }).filter(function (r) { return r.ms.length; });
-    return '<section class="card"><div class="card-h"><h2>When…</h2><span class="muted small">record in each kind of game</span></div><div class="tw"><table><thead><tr><th>Game</th>' + REC_HEAD + '</tr></thead><tbody>' +
+    ].map(function (r) { return { label: r[0], sub: r[2] || '', ms: ms.filter(r[1]), t: tally(ms.filter(r[1])) }; }).filter(function (r) { return r.ms.length; });
+    /* sortable: nothing picked keeps the list order; a column sorts highest first, a second click flips it */
+    var sk = ui.splitSort.k, sd = ui.splitSort.dir, col = SPLIT_COLS.filter(function (c) { return c[0] === sk; })[0];
+    if (col) rows.sort(function (x, y) { return (col[2](x.t) - col[2](y.t)) * sd || y.t.P - x.t.P; });
+    var head = SPLIT_COLS.map(function (c) {
+      var on = col && c[0] === sk;
+      return '<th' + (on ? ' aria-sort="' + (sd < 0 ? 'descending' : 'ascending') + '"' : '') + '><button data-act="split-sort" data-k="' + c[0] + '" class="' + (on ? 'on' : '') + '">' + c[1] + (on ? (sd < 0 ? ' ↓' : ' ↑') : '') + '</button></th>';
+    }).join('');
+    return '<section class="card"><div class="card-h"><h2>When…</h2></div><div class="tw"><table><thead><tr><th>Game</th>' + head + '</tr></thead><tbody>' +
       rows.map(function (r) { return recRow(r.label, r.sub, r.ms); }).join('') + '</tbody></table></div></section>';
   }
 
@@ -1855,6 +1864,7 @@
     else if (act === 'sort') { var k = el.getAttribute('data-k'); if (ui.sortK === k) ui.sortDir = -ui.sortDir; else { ui.sortK = k; ui.sortDir = -1; } }
     else if (act === 'match-sort') { var mk = el.getAttribute('data-k'); if (ui.matchSort.k === mk) ui.matchSort.dir = -ui.matchSort.dir; else { ui.matchSort.k = mk; ui.matchSort.dir = -1; } }
     else if (act === 'ins-sort') { var ik = el.getAttribute('data-k'); if (ui.insSort.k === ik) ui.insSort.dir = -ui.insSort.dir; else { ui.insSort.k = ik; ui.insSort.dir = -1; } }
+    else if (act === 'split-sort') { var sk2 = el.getAttribute('data-k'); if (ui.splitSort.k === sk2) ui.splitSort.dir = -ui.splitSort.dir; else { ui.splitSort.k = sk2; ui.splitSort.dir = -1; } }
     else if (act === 'per90-sort') { var pk = el.getAttribute('data-k'); if (ui.per90Sort.k === pk) ui.per90Sort.dir = -ui.per90Sort.dir; else { ui.per90Sort.k = pk; ui.per90Sort.dir = -1; } }
     else if (act === 'share-match') {
       var url = el.getAttribute('data-url');
