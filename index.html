@@ -21,12 +21,21 @@
       <a href="#compare" data-nav="compare">Compare</a>
       <a href="#stats" data-nav="stats">Stats</a>
     </nav>
-    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode"><span class="toggle-track"><span class="toggle-thumb"></span></span></button>
+    <div class="header-actions">
+      <a class="icon-btn" href="#data" data-nav="data" aria-label="Manage data" title="Manage data">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+        </svg>
+      </a>
+      <button class="theme-toggle" id="themeToggle" role="switch" aria-checked="false" aria-label="Toggle dark mode" title="Toggle dark mode"><span class="toggle-track"><span class="toggle-thumb"></span></span></button>
+    </div>
   </div>
 </header>
 <main id="view" class="wrap"></main>
-<footer class="foot wrap">
-</footer>
+<div id="chart-tip" class="chart-tip" role="tooltip" hidden></div>
+<footer class="foot wrap"></footer>
 <script src="data/db.js"></script>
 <script src="lib/normalize.js"></script>
 <script src="app.js"></script>
