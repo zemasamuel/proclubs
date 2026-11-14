@@ -640,7 +640,7 @@
   /* ---------- insights ---------- */
   /* Everything here is worked out from the saved matches only: a role for each player, recent form,
      how steady their ratings are, how the club does with and without them, how they do in close
-     games, and which pairs of players win most together. Small samples swing a lot, so each
+     games, and which players do well together. Small samples swing a lot, so each
      figure needs a minimum number of games before it is shown. */
   var INS_MIN_GAMES = 3;     // games needed for a role, and on each side of a with/without split
   var INS_MIN_RATED = 4;     // rated games needed for form and consistency
@@ -735,26 +735,72 @@
     return { n: close.length, rating: mean(rc), restRating: mean(rr), delta: mean(rc) - mean(rr), ga: gaPer90(close), restGa: gaPer90(rest) };
   }
 
-  /* pairsOf: every two players who have shared the pitch often enough, best results first */
-  function pairsOf() {
-    var need = Math.max(INS_MIN_GAMES, Math.ceil(idx.matches.length / 4)), byId = dict(), map = dict();
-    idx.players.forEach(function (a) { byId[a.id] = a; });
-    idx.matches.forEach(function (m) {
-      var ids = m.players.us.map(function (p) { return p.id; }).sort();
-      for (var i = 0; i < ids.length; i++) for (var j = i + 1; j < ids.length; j++) {
-        var key = ids[i] + '|' + ids[j];
-        (map[key] || (map[key] = { a: byId[ids[i]], b: byId[ids[j]], ms: [] })).ms.push(m);
-      }
+  /* ---------- who plays well together ---------- */
+  /* regulars: everyone with enough games for the grids, most games first */
+  function regularsOf() {
+    return idx.players.filter(function (a) { return a.apps >= INS_MIN_GAMES; })
+      .sort(function (x, y) { return y.apps - x.apps || x.name.localeCompare(y.name); });
+  }
+  /* togetherOf: the matches every player in the list played in */
+  function togetherOf(list) {
+    return idx.matches.filter(function (m) { return list.every(function (a) { return a.inMatch[m.id]; }); });
+  }
+  /* duosOf: the club's record in the games each pair of regulars both played */
+  function duosOf(regs) {
+    var map = dict();
+    regs.forEach(function (a, i) {
+      regs.slice(i + 1).forEach(function (b) {
+        var t = tally(togetherOf([a, b]));
+        map[a.id + '|' + b.id] = map[b.id + '|' + a.id] = t;
+      });
     });
-    var list = Object.keys(map).map(function (k) { return map[k]; }).filter(function (e) { return e.a && e.b && e.a !== e.b && e.ms.length >= need; });
-    list.forEach(function (e) { e.t = tally(e.ms); e.ppg = pointsPerGame(e.t); e.gd = goalDiffPerGame(e.t); });
-    list.sort(function (x, y) { return y.ppg - x.ppg || y.gd - x.gd || y.t.P - x.t.P; });
-    return { need: need, list: list };
+    return map;
+  }
+  /* linkupsOf: games where one player had an assist and a teammate scored.
+     EA does not say who assisted whom, so this counts games, not goals. */
+  function linkupsOf(byId) {
+    var map = dict();
+    idx.matches.forEach(function (m) {
+      var us = m.players.us;
+      us.forEach(function (a) {
+        if (!a.assists) return;
+        us.forEach(function (b) {
+          if (b === a || !b.goals) return;
+          var k = a.id + '>' + b.id;
+          (map[k] || (map[k] = { from: byId[a.id], to: byId[b.id], n: 0 })).n++;
+        });
+      });
+    });
+    return Object.keys(map).map(function (k) { return map[k]; })
+      .filter(function (e) { return e.from && e.to && e.n >= 2; })
+      .sort(function (x, y) { return y.n - x.n || x.from.name.localeCompare(y.from.name); });
+  }
+  /* bestFiveOf: the five regulars with the best record in the games all five played */
+  function bestFiveOf(regs) {
+    var need = Math.max(INS_MIN_GAMES, Math.ceil(idx.matches.length / 5)), list = [];
+    (function pick(start, chosen) {
+      if (chosen.length === 5) {
+        var ms = togetherOf(chosen);
+        if (ms.length >= need) { var t = tally(ms); list.push({ ps: chosen.slice(), t: t, ppg: pointsPerGame(t), gd: goalDiffPerGame(t) }); }
+        return;
+      }
+      for (var i = start; i <= regs.length - (5 - chosen.length); i++) { chosen.push(regs[i]); pick(i + 1, chosen); chosen.pop(); }
+    })(0, []);
+    list.sort(function (x, y) { return y.ppg - x.ppg || y.t.P - x.t.P || y.gd - x.gd; });
+    return { need: need, best: list[0] || null };
   }
 
-  /* insights: built once per page load (the data never changes while the page is open) */
+  /* insights: built once per page load (the data never changes while the page is open).
+     Roles, form and every award are worked out again from the saved games on each load,
+     so they change on their own as new games come in. */
   function insights() {
     if (idx.ins) return idx.ins;
+    var byId = dict();
+    idx.players.forEach(function (a) {
+      byId[a.id] = a;
+      a.inMatch = dict();
+      a.log.forEach(function (x) { a.inMatch[x.m.id] = true; });
+    });
     var outfield = idx.players.filter(function (a) { return a.apps >= INS_MIN_GAMES && mainPos(a) !== 'GK'; });
     var sq = {};
     Object.keys(RATE).forEach(function (k) { sq[k] = mean(outfield.map(RATE[k])) || 0; });
@@ -762,14 +808,84 @@
     idx.players.filter(function (a) { return a.apps > 0; }).forEach(function (a) {
       by[a.id] = { a: a, role: roleOf(a, sq), form: formOf(a), steady: steadinessOf(a), impact: impactOf(a), close: closeOf(a) };
     });
-    return (idx.ins = { by: by, pairs: pairsOf() });
+    var regs = regularsOf();
+    return (idx.ins = { by: by, regs: regs, duos: duosOf(regs), links: linkupsOf(byId), five: bestFiveOf(regs) });
   }
 
   function recordOf(t) { return t.W + 'W ' + t.D + 'D ' + t.L + 'L'; }
   function tone(delta, limit) { return delta >= limit ? ' good' : delta <= -limit ? ' bad' : ''; }
   function playerLink(a) { return '<a href="' + playerHref(a.id) + '">' + esc(a.name) + '</a>'; }
+  /* shortName: grid headers have little room, so drop trailing digits and cut long names */
+  function shortName(n) { var s = String(n).replace(/\d+$/, '') || String(n); return s.length > 9 ? s.slice(0, 8) + '…' : s; }
 
-  /* Squad > Insights: one row per player, then the standouts and the best partnerships */
+  /* G+A streak: games in a row, counting back from the latest, with a goal or an assist */
+  function gaRunOf(a) {
+    var n = 0;
+    for (var i = a.log.length - 1; i >= 0; i--) { if (a.log[i].p.goals + a.log[i].p.assists > 0) n++; else break; }
+    return n;
+  }
+  function closeGaOf(a) {
+    var n = 0, ga = 0;
+    a.log.forEach(function (x) { if (isClose(x.m)) { n++; ga += x.p.goals + x.p.assists; } });
+    return { n: n, ga: ga };
+  }
+
+  /* trophiesOf: one award per category, worked out fresh from the saved games.
+     Ties share the award. An award with nobody qualifying is left out. */
+  function trophiesOf(ins) {
+    var ps = idx.players.filter(function (a) { return a.apps > 0; }), out = [];
+    function award(title, value, show, opt) {
+      opt = opt || {};
+      var rows = ps.filter(function (a) { return !opt.ok || opt.ok(a); }).map(function (a) { return { a: a, v: value(a) }; })
+        .filter(function (r) { return r.v !== null && r.v !== undefined && isFinite(r.v) && (opt.low || r.v >= (opt.min || 1e-9)); });
+      if (!rows.length) return;
+      rows.sort(function (x, y) { return opt.low ? x.v - y.v : y.v - x.v; });
+      var top = rows.filter(function (r) { return Math.abs(r.v - rows[0].v) < 1e-9; });
+      out.push({ title: title, who: top.map(function (r) { return r.a; }), value: show(top[0].v, top[0].a), sub: opt.sub ? opt.sub(top[0].a, top.length) : '', tip: opt.tip || '' });
+    }
+    var n = idx.matches.length;
+    award('Golden Boot', function (a) { return a.goals; }, function (v) { return v + (v === 1 ? ' goal' : ' goals'); },
+      { sub: function (a, k) { return k > 1 ? 'shared' : 'in ' + games(a.apps); }, tip: 'Most goals' });
+    award('Playmaker', function (a) { return a.assists; }, function (v) { return v + (v === 1 ? ' assist' : ' assists'); },
+      { sub: function (a, k) { return k > 1 ? 'shared' : 'in ' + games(a.apps); }, tip: 'Most assists' });
+    award('Top rated', avgRating, function (v) { return f2(v) + ' average'; },
+      { ok: function (a) { return a.rated >= INS_MIN_RATED; }, sub: function (a) { return 'over ' + games(a.rated); }, tip: 'Best average rating, ' + INS_MIN_RATED + '+ rated games' });
+    award('Sharpshooter', function (a) { return pct(a.goals, a.tries); }, function (v) { return pctF(v) + ' of shots scored'; },
+      { ok: function (a) { return a.goals >= 3; }, sub: function (a) { return a.goals + ' from ' + a.tries + ' shots'; }, tip: 'Best goals per shot, 3+ goals' });
+    award('Clutch', function (a) { return closeGaOf(a).ga; }, function (v) { return v + ' G+A in close games'; },
+      { sub: function (a) { return 'in ' + games(closeGaOf(a).n) + ' decided by a goal or less'; }, tip: 'Most goals + assists in draws and one-goal games' });
+    award('Player of the match', function (a) { return a.motm; }, function (v) { return v + (v === 1 ? ' award' : ' awards'); },
+      { sub: function (a) { return 'in ' + games(a.apps); }, tip: 'Most player of the match awards' });
+    award('On a run', gaRunOf, function (v) { return v + ' games in a row'; },
+      { min: 3, sub: function () { return 'with a goal or assist, and counting'; }, tip: 'Longest current run of games with a goal or an assist (3+)' });
+    award('In form', function (a) { var f = ins.by[a.id] && ins.by[a.id].form; return f ? f.delta : null; }, function (v) { return signed(v, 2) + ' rating'; },
+      { min: INS_TREND, sub: function (a) { var f = ins.by[a.id].form; return f2(f.recent) + ' over the last ' + games(f.n); }, tip: 'Biggest rise in rating, latest games against the ones before' });
+    award('Mr Reliable', function (a) { var s = ins.by[a.id] && ins.by[a.id].steady; return s ? s.sd : null; }, function (v) { return '±' + f2(v) + ' game to game'; },
+      { low: true, sub: function (a) { return 'steadiest ratings over ' + games(a.rated); }, tip: 'Smallest swing in rating from game to game' });
+    award('Wildcard', function (a) { var s = ins.by[a.id] && ins.by[a.id].steady; return s ? s.sd : null; }, function (v) { return '±' + f2(v) + ' game to game'; },
+      { sub: function (a) { var rs = ratingsOf(a.log); return 'anywhere from ' + f1(Math.min.apply(null, rs)) + ' to ' + f1(Math.max.apply(null, rs)); }, tip: 'Biggest swing in rating from game to game' });
+    award('Safe hands', function (a) { var s = 0; a.log.forEach(function (x) { if (x.p.pos === 'GK') s += x.p.saves; }); return s; }, function (v) { return v + (v === 1 ? ' save' : ' saves'); },
+      { sub: function (a) { var g = a.log.filter(function (x) { return x.p.pos === 'GK'; }).length; return 'in ' + games(g) + ' in goal'; }, tip: 'Most saves in goal' });
+    award('Ever-present', function (a) { return a.apps; }, function (v) { return v + ' of ' + n + ' games'; },
+      { sub: function (a, k) { return k > 1 ? 'shared' : pctS(a.apps, n) + ' of games played'; }, tip: 'Most games played' });
+    return out;
+  }
+
+  /* sparkline: the last 10 ratings as a small line, latest dot coloured like its rating chip */
+  function sparkline(a) {
+    var log = a.log.filter(function (x) { return x.p.rating > 0; }).slice(-10);
+    if (log.length < 2) return '<span class="muted">–</span>';
+    var rs = log.map(function (x) { return x.p.rating; });
+    var W = 72, H = 24, lo = Math.min(5, Math.floor(Math.min.apply(null, rs))), hi = 10;
+    var X = function (i) { return 3 + i * (W - 6) / (rs.length - 1); }, Y = function (v) { return 3 + (hi - v) * (H - 6) / (hi - lo); };
+    var last = log[log.length - 1];
+    return '<svg class="spark" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Last ' + rs.length + ' ratings: ' + rs.map(function (r) { return r.toFixed(1); }).join(', ') + '">' +
+      '<title>Last ' + rs.length + ' ratings: ' + rs.map(function (r) { return r.toFixed(1); }).join(', ') + '</title>' +
+      '<polyline points="' + rs.map(function (r, i) { return X(i).toFixed(1) + ',' + Y(r).toFixed(1); }).join(' ') + '"/>' +
+      '<circle cx="' + X(rs.length - 1).toFixed(1) + '" cy="' + Y(last.p.rating).toFixed(1) + '" r="2.8" style="fill:' + rtColor(last.p.rating, last.p.motm) + '"/></svg>';
+  }
+
+  /* Insights tab: trophy cabinet, the player table, linkups, best five and the duo grid */
   var INS_COLS = [
     { k: 'form',    label: 'Form',        tip: 'Average rating in the latest games minus the games before', v: function (r) { return r.form ? r.form.delta : null; } },
     { k: 'steady',  label: 'Rating swing', tip: 'How much the rating moves from game to game. Lower is steadier', v: function (r) { return r.steady ? r.steady.sd : null; } },
@@ -778,9 +894,20 @@
     { k: 'impact',  label: 'Impact',      tip: 'Points per game with the player minus without', v: function (r) { return r.impact ? r.impact.delta : null; } },
     { k: 'close',   label: 'Close games', tip: 'Average rating in draws and one-goal games', v: function (r) { return r.close ? r.close.rating : null; } }
   ];
-  function squadInsightsHtml() {
-    if (!idx.matches.length) return emptyState();
-    var ins = insights(), sk = ui.insSort.k, sd = ui.insSort.dir;
+
+  function trophyCabinetHtml(ins) {
+    var list = trophiesOf(ins);
+    if (!list.length) return '';
+    return '<section class="card"><div class="card-h"><h2>Trophy cabinet</h2><span class="muted small">updates after every game</span></div><div class="trophies">' +
+      list.map(function (t) {
+        return '<div class="trophy" title="' + esc(t.tip) + '"><span class="tr-t">' + esc(t.title) + '</span>' +
+          '<span class="tr-who">' + t.who.map(playerLink).join(' &amp; ') + '</span>' +
+          '<span class="tr-v">' + esc(t.value) + '</span>' + (t.sub ? '<span class="tr-s">' + esc(t.sub) + '</span>' : '') + '</div>';
+      }).join('') + '</div></section>';
+  }
+
+  function insightsTableHtml(ins) {
+    var sk = ui.insSort.k, sd = ui.insSort.dir;
     var col = INS_COLS.filter(function (c) { return c.k === sk; })[0] || INS_COLS[0];
     var rows = Object.keys(ins.by).map(function (id) { return ins.by[id]; });
     rows.sort(function (x, y) {
@@ -789,12 +916,14 @@
       return (b - a) * -sd || y.a.apps - x.a.apps;
     });
     function small(s) { return '<small>' + s + '</small>'; }
-    var h = '<section class="card"><div class="tw"><table class="ins-t"><thead><tr><th>Player</th>' + INS_COLS.map(function (c) {
+    return '<section class="card"><div class="tw"><table class="ins-t"><thead><tr><th>Player</th><th title="Ratings in the last 10 games">Last 10</th>' + INS_COLS.map(function (c) {
       var on = c.k === sk;
       return '<th title="' + esc(c.tip) + '"><button data-act="ins-sort" data-k="' + c.k + '" class="' + (on ? 'on' : '') + '">' + c.label + (on ? (sd < 0 ? ' ↓' : ' ↑') : '') + '</button></th>';
     }).join('') + '</tr></thead><tbody>' + rows.map(function (r) {
       var f = r.form, s = r.steady, im = r.impact, c = r.close;
-      return '<tr><td class="name">' + playerLink(r.a) + small(r.role ? esc(r.role.label) : games(r.a.apps)) + '</td>' +
+      var roleLine = r.role ? esc(r.role.label) : games(r.a.apps) + ' · role after ' + INS_MIN_GAMES;
+      return '<tr><td class="name">' + playerLink(r.a) + small(roleLine) + '</td>' +
+        '<td class="spark-td">' + sparkline(r.a) + '</td>' +
         '<td>' + (f ? '<b class="delta' + tone(f.delta, INS_TREND) + '">' + signed(f.delta, 2) + '</b>' + small(f.label) : '–') + '</td>' +
         '<td>' + (s ? '±' + f2(s.sd) + small(s.label) : '–') + '</td>' +
         '<td>' + (im ? f2(im.ppgWith) + small(games(im.w.P)) : '–') + '</td>' +
@@ -802,28 +931,53 @@
         '<td>' + (im && im.delta !== null ? '<b class="delta' + tone(im.delta, 0.25) + '">' + signed(im.delta, 2) + '</b>' : '–') + '</td>' +
         '<td>' + (c ? rt(c.rating) + small(f1(c.restRating) + ' in the rest') : '–') + '</td></tr>';
     }).join('') + '</tbody></table></div></section>';
+  }
 
-    /* standouts: the leader in each insight, when someone clearly has one */
-    function top(fn, lowest) {
-      var best = null;
-      rows.forEach(function (r) { var v = fn(r); if (v !== null && (best === null || (lowest ? v < fn(best) : v > fn(best)))) best = r; });
-      return best;
+  function linkupsHtml(ins) {
+    return '<section class="card"><div class="card-h"><h2>Linkups</h2><span class="muted small">assist → goal, same game</span></div><div class="plist">' +
+      (ins.links.slice(0, 6).map(function (e, i) {
+        return '<div class="pl"><span class="rk">' + (i + 1) + '</span><span class="nm wrap">' + playerLink(e.from) + ' <span class="muted">→</span> ' + playerLink(e.to) +
+          '</span><span class="v">' + games(e.n) + '</span></div>';
+      }).join('') || '<div class="pl muted">No linkup has happened twice yet.</div>') + '</div></section>';
+  }
+
+  function bestFiveHtml(ins) {
+    var f = ins.five, b = f.best;
+    return '<section class="card"><div class="card-h"><h2>Best five</h2><span class="muted small">all five on the pitch · ' + f.need + '+ games</span></div>' +
+      (b ? '<div class="card-b five"><div class="five-names">' + b.ps.map(playerLink).join('') + '</div>' +
+        '<div class="five-rec"><b>' + recordOf(b.t) + '</b><span class="muted small">' + games(b.t.P) + ' together · ' + f2(b.ppg) + ' pts/game · ' + signed(b.gd, 1) + ' goals a game</span></div></div>'
+        : '<div class="card-b muted">No five regulars have played ' + f.need + ' games together yet.</div>') + '</section>';
+  }
+
+  /* duo grid: club win % in the games each pair both played, tinted against the club's overall win % */
+  function duoGridHtml(ins) {
+    var regs = ins.regs;
+    if (regs.length < 2) return '';
+    var club = tally(idx.matches), base = pct(club.W, club.P) || 0;
+    function cell(t, self) {
+      if (t.P < INS_MIN_GAMES) return '<td class="duo-c muted" title="' + games(t.P) + ' together">–</td>';
+      var w = pct(t.W, t.P), diff = w - base, k = Math.min(1, Math.abs(diff) / 30) * 38;
+      var bg = self || Math.abs(diff) < 1 ? '' : ' style="background:color-mix(in srgb, var(--' + (diff > 0 ? 'win' : 'loss') + ') ' + Math.round(k) + '%, transparent)"';
+      return '<td class="duo-c' + (self ? ' duo-self' : '') + '"' + bg + ' title="' + recordOf(t) + ' in ' + games(t.P) + '"><b>' + Math.round(w) + '%</b><small>' + t.P + ' gp</small></td>';
     }
-    var hot = top(INS_COLS[0].v), steady = top(INS_COLS[1].v, true), impact = top(INS_COLS[4].v), clutch = top(INS_COLS[5].v), stand = [];
-    if (hot && hot.form.delta >= INS_TREND) stand.push(['In form', playerLink(hot.a) + ' · ' + signed(hot.form.delta, 2) + ' rating']);
-    if (impact && impact.impact.delta > 0) stand.push(['Biggest impact', playerLink(impact.a) + ' · ' + signed(impact.impact.delta, 2) + ' pts/game']);
-    if (steady) stand.push(['Steadiest', playerLink(steady.a) + ' · ±' + f2(steady.steady.sd)]);
-    if (clutch) stand.push(['Best in close games', playerLink(clutch.a) + ' · ' + f2(clutch.close.rating)]);
+    var h = '<section class="card"><div class="card-h"><h2>Who wins together</h2><span class="muted small">win % when both play · club ' + Math.round(base) + '%</span></div>' +
+      '<div class="tw"><table class="duo"><thead><tr><th></th>' + regs.map(function (a) { return '<th title="' + esc(a.name) + '">' + esc(shortName(a.name)) + '</th>'; }).join('') + '</tr></thead><tbody>';
+    regs.forEach(function (a) {
+      h += '<tr><td class="name">' + playerLink(a) + '</td>' + regs.map(function (b) {
+        return a === b ? cell({ P: a.apps, W: a.W, D: a.D, L: a.L }, true) : cell(ins.duos[a.id + '|' + b.id], false);
+      }).join('') + '</tr>';
+    });
+    return h + '</tbody></table></div><p class="duo-key muted small">Green: the club wins more often than usual when both play. Red: less often. Grey: the player\'s own record. Pairs need ' + INS_MIN_GAMES + ' games together.</p></section>';
+  }
 
-    h += '<div class="grid2">' + (stand.length ? kvCard('Standouts', stand) : '') +
-      '<section class="card"><div class="card-h"><h2>Best partnerships</h2><span class="muted small">' + ins.pairs.need + '+ games together</span></div><div class="plist">' +
-      (ins.pairs.list.slice(0, 5).map(function (e, i) {
-        return '<div class="pl"><span class="rk">' + (i + 1) + '</span><span class="nm wrap">' + playerLink(e.a) + ' + ' + playerLink(e.b) +
-          '<small>' + games(e.t.P) + ' · ' + recordOf(e.t) + ' · ' + signed(e.gd, 1) + ' goals a game</small></span><span class="v">' + f2(e.ppg) + '</span></div>';
-      }).join('') || '<div class="pl muted">No pair has played enough games together yet.</div>') + '</div></section></div>';
-
-    return h + '<p class="note">Worked out from the ' + games(idx.matches.length) + ' saved here. Form compares a player\'s latest rated games with the ones before. ' +
-      'With and without need ' + INS_MIN_GAMES + ' games each, and a close game is a draw or a one-goal result. Numbers will settle as more games are saved.</p>';
+  function insightsPageHtml() {
+    if (!idx.matches.length) return emptyState();
+    var ins = insights();
+    return trophyCabinetHtml(ins) + insightsTableHtml(ins) +
+      '<div class="grid2">' + linkupsHtml(ins) + bestFiveHtml(ins) + '</div>' + duoGridHtml(ins) +
+      '<p class="note">Worked out from the ' + games(idx.matches.length) + ' saved here, again on every visit, so roles, awards and form move as new games come in. ' +
+      'Form compares a player\'s latest rated games with the ones before. With and without need ' + INS_MIN_GAMES + ' games each, and a close game is a draw or a one-goal result. ' +
+      'EA doesn\'t say who assisted whom, so a linkup counts games where one player had an assist and the other scored.</p>';
   }
 
   /* Player page > Insights: the same findings written out for one player */
@@ -860,18 +1014,17 @@
       }).filter(Boolean);
       row('By result', '', 'Goals + assists per game: ' + parts.join(', ') + '.');
     }
-    var partner = ins.pairs.list.filter(function (e) { return e.a === a || e.b === a; })[0];
-    if (partner) {
-      row('Best partner', '', playerLink(partner.a === a ? partner.b : partner.a) + ': ' + recordOf(partner.t) + ' in ' + games(partner.t.P) + ' together, ' + f2(partner.ppg) + ' points a game.');
-    }
+    var feeds = ins.links.filter(function (e) { return e.from === a; })[0], fedBy = ins.links.filter(function (e) { return e.to === a; })[0];
+    if (feeds) row('Linkup', '', 'Had an assist in ' + games(feeds.n) + ' where ' + playerLink(feeds.to) + ' scored.');
+    if (fedBy) row('Fed by', '', playerLink(fedBy.from) + ' had an assist in ' + games(fedBy.n) + ' where ' + name + ' scored.');
     if (!rows.length) return '';
     return '<section class="card"><div class="card-h"><h2>Insights</h2><span class="muted small">from ' + games(a.apps) + '</span></div><ul class="ins">' + rows.join('') + '</ul></section>';
   }
 
   /* ---------- insights (top-level tab) ---------- */
   function viewInsights() {
-    var h = '<div class="dayhead"><h1>Insights</h1></div>';
-    h += squadInsightsHtml();
+    var h = '<div class="dayhead"><h1>Insights</h1>' + (idx.matches.length ? '<span class="muted small">from ' + games(idx.matches.length) + '</span>' : '') + '</div>';
+    h += insightsPageHtml();
     view.innerHTML = h;
   }
 
@@ -1294,6 +1447,104 @@
     return h;
   }
 
+  /* ---------- team patterns (Stats tab) ---------- */
+  /* seasonArc: points per game over the latest five games, game by game, against the season average */
+  var ARC_SPAN = 5;
+  function seasonArc(ms) {
+    if (ms.length < 3) return '';
+    var W = 720, H = 200, L = 34, R = 14, T = 14, B = 28;
+    var pts = ms.map(function (m, i) { return { m: m, v: pointsPerGame(tally(ms.slice(Math.max(0, i - ARC_SPAN + 1), i + 1))) }; });
+    var X = function (i) { return L + i * (W - L - R) / (ms.length - 1); }, Y = function (v) { return T + (3 - v) * (H - T - B) / 3; };
+    var season = pointsPerGame(tally(ms));
+    var s = '<svg class="chart arc" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Points per game over the latest ' + ARC_SPAN + ' games, game by game. Season average ' + f2(season) + '">';
+    for (var g = 0; g <= 3; g++) s += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(g) + '" y2="' + Y(g) + '"/><text class="axis" x="' + (L - 8) + '" y="' + (Y(g) + 4) + '" text-anchor="end">' + g + '</text>';
+    s += '<line class="avg" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(season) + '" y2="' + Y(season) + '"/>';
+    s += '<polyline class="ln" points="' + pts.map(function (p, i) { return X(i).toFixed(1) + ',' + Y(p.v).toFixed(1); }).join(' ') + '"/>';
+    var col = { W: 'var(--win)', D: 'var(--draw)', L: 'var(--loss)' };
+    pts.forEach(function (p, i) {
+      var title = p.m.result + ' ' + p.m.us.goals + '–' + p.m.them.goals + ' v ' + p.m.them.name;
+      var sub = fmtDayShort(p.m.day) + ' · last ' + Math.min(ARC_SPAN, i + 1) + ': ' + f2(p.v) + ' pts/game';
+      s += '<a href="' + matchHref(p.m) + '"><circle class="tip-node" data-tip-title="' + esc(title) + '" data-tip-sub="' + esc(sub) + '" style="fill:' + col[p.m.result] + '" cx="' + X(i).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="6"></circle></a>';
+    });
+    s += '<text class="axis" x="' + L + '" y="' + (H - 8) + '">' + esc(fmtDayShort(ms[0].day)) + '</text>';
+    s += '<text class="axis" x="' + (W - R) + '" y="' + (H - 8) + '" text-anchor="end">' + esc(fmtDayShort(ms[ms.length - 1].day)) + '</text>';
+    s += '<text class="avgl" x="' + (W / 2) + '" y="' + (H - 8) + '" text-anchor="middle">Season ' + f2(season) + ' pts/game</text>';
+    var recent = pts[pts.length - 1].v, d = recent - season;
+    return '<section class="card"><div class="card-h"><h2>Season arc</h2><span class="muted small">points per game, last ' + ARC_SPAN + ' · now ' + f2(recent) +
+      (Math.abs(d) >= 0.05 ? ' (' + signed(d, 2) + ' on the season)' : '') + '</span></div><div class="card-b">' + s + '</svg></div></section>';
+  }
+
+  function recRow(label, sub, ms) {
+    var x = tally(ms);
+    return '<tr><td class="name">' + label + (sub ? '<small>' + sub + '</small>' : '') + '</td><td>' + x.P + '</td><td>' + x.W + '</td><td>' + x.D + '</td><td>' + x.L + '</td><td>' + x.GF + '–' + x.GA + '</td><td>' + pctS(x.W, x.P) + '</td></tr>';
+  }
+  var REC_HEAD = '<th>P</th><th>W</th><th>D</th><th>L</th><th>GF–GA</th><th>Win %</th>';
+
+  /* gameOfNight: results by where the game fell in the night's session (a night runs to 5 AM) */
+  var NIGHT_SLOTS = [['1st game', '', 1, 1], ['2nd – 3rd', '', 2, 3], ['4th – 5th', '', 4, 5], ['6th and later', '', 6, 999]];
+  function gameOfNightHtml(ms) {
+    var count = dict(), order = ms.map(function (m) { count[m.day] = (count[m.day] || 0) + 1; return count[m.day]; });
+    var rows = NIGHT_SLOTS.map(function (s) { return { s: s, ms: ms.filter(function (m, i) { return order[i] >= s[2] && order[i] <= s[3]; }) }; })
+      .filter(function (r) { return r.ms.length; });
+    return '<section class="card"><div class="card-h"><h2>Game of the night</h2><span class="muted small">' + games(Object.keys(count).length).replace('game', 'night') + '</span></div><div class="tw"><table><thead><tr><th>Game</th>' + REC_HEAD + '</tr></thead><tbody>' +
+      rows.map(function (r) { return recRow(r.s[0], '', r.ms); }).join('') + '</tbody></table></div></section>';
+  }
+
+  /* numbersHtml: results by how many of us were real players, and against how many of them */
+  function numbersHtml(ms) {
+    var sizes = dict();
+    ms.forEach(function (m) { var n = m.stats.us.humans; (sizes[n] = sizes[n] || []).push(m); });
+    var keys = Object.keys(sizes).map(Number).filter(function (n) { return n > 0; }).sort(function (a, b) { return a - b; });
+    if (!keys.length) return '';
+    return '<section class="card"><div class="card-h"><h2>Numbers on the pitch</h2><span class="muted small">real players on our side</span></div><div class="tw"><table><thead><tr><th>Players</th>' + REC_HEAD + '</tr></thead><tbody>' +
+      keys.map(function (n) { return recRow(n + (n === 1 ? ' player' : ' players'), '', sizes[n]); }).join('') + '</tbody></table></div></section>';
+  }
+
+  /* splitsHtml: the club's record in different kinds of game */
+  function splitsHtml(ms) {
+    var rows = [
+      ['Scoring 3 or more', function (m) { return m.us.goals >= 3; }],
+      ['Conceding 2 or more', function (m) { return m.them.goals >= 2; }],
+      ['Close games', function (m) { return isClose(m); }, 'a draw or decided by one goal'],
+      ['Higher team rating than them', function (m) { return m.stats.us.avgRating > 0 && m.stats.us.avgRating > m.stats.them.avgRating; }],
+      ['Out-shooting them', function (m) { return triesOf(m.players.us) > triesOf(m.players.them); }],
+      ['Completing more passes', function (m) { return m.stats.us.passesMade > m.stats.them.passesMade; }],
+      ['More players than them', function (m) { return m.stats.us.humans > m.stats.them.humans; }, 'real players'],
+      ['Fewer players than them', function (m) { return m.stats.us.humans < m.stats.them.humans; }, 'real players']
+    ].map(function (r) { return { label: r[0], sub: r[2] || '', ms: ms.filter(r[1]) }; }).filter(function (r) { return r.ms.length; });
+    return '<section class="card"><div class="card-h"><h2>When…</h2><span class="muted small">record in each kind of game</span></div><div class="tw"><table><thead><tr><th>Game</th>' + REC_HEAD + '</tr></thead><tbody>' +
+      rows.map(function (r) { return recRow(r.label, r.sub, r.ms); }).join('') + '</tbody></table></div></section>';
+  }
+
+  /* nightsHtml: every night we played, newest first, with that night's top-rated player */
+  function nightsHtml(ms) {
+    var days = dict();
+    ms.forEach(function (m) { (days[m.day] = days[m.day] || []).push(m); });
+    var keys = Object.keys(days).sort().reverse();
+    return '<section class="card"><div class="card-h"><h2>Nights</h2><span class="muted small">best average rating that night</span></div><div class="tw scroll-y"><table><thead><tr><th>Night</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF–GA</th><th>Star of the night</th></tr></thead><tbody>' +
+      keys.map(function (k) {
+        var list = days[k], x = tally(list), per = dict(), star = null;
+        list.forEach(function (m) {
+          m.players.us.forEach(function (p) {
+            if (!(p.rating > 0)) return;
+            var e = per[p.id] || (per[p.id] = { id: p.id, name: p.name, s: 0, n: 0 });
+            e.s += p.rating; e.n++;
+          });
+        });
+        var need = Math.ceil(list.length / 2);
+        Object.keys(per).forEach(function (id) { var e = per[id]; if (e.n >= need && (!star || e.s / e.n > star.s / star.n)) star = e; });
+        var d = dateOfKey(k);
+        return '<tr><td class="name"><a href="#day-' + k + '">' + WD[d.getDay()] + ' ' + esc(fmtDayShort(k)) + '</a></td><td>' + x.P + '</td><td>' + x.W + '</td><td>' + x.D + '</td><td>' + x.L + '</td><td>' + x.GF + '–' + x.GA + '</td><td>' +
+          (star ? '<a class="star" href="' + playerHref(star.id) + '">' + esc(star.name) + '</a> ' + rt(star.s / star.n) : '–') + '</td></tr>';
+      }).join('') + '</tbody></table></div></section>';
+  }
+
+  function teamPatternsHtml(ms) {
+    return seasonArc(ms) +
+      '<div class="grid2">' + gameOfNightHtml(ms) + numbersHtml(ms) + '</div>' +
+      splitsHtml(ms) + nightsHtml(ms);
+  }
+
   var P90_COLS = [
     { k: 'mins',    label: 'Min',     v: function (a) { return mins(a.seconds); } },
     { k: 'g90',     label: 'G /90',   v: function (a) { return per90(a.goals, a.seconds) || 0; } },
@@ -1327,11 +1578,11 @@
       return !q || e.name.toLowerCase().indexOf(q) >= 0;
     }).sort(function (a, b) { return b.ms.length - a.ms.length || b.last - a.last; });
     if (!ol.length) return '<div class="card-b muted">No matching opponents.</div>';
-    return '<div class="tw"><table><thead><tr><th>Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>Last met</th></tr></thead><tbody>' +
+    return '<table><thead><tr><th>Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>Last met</th></tr></thead><tbody>' +
       ol.map(function (e) {
         var x = tally(e.ms), lastM = e.ms[e.ms.length - 1];
         return '<tr><td class="name"><a class="who" href="' + matchHref(lastM) + '">' + crest(e.side, 24) + '<span>' + esc(e.name) + '</span></a></td><td>' + x.P + '</td><td>' + x.W + '</td><td>' + x.D + '</td><td>' + x.L + '</td><td>' + x.GF + '</td><td>' + x.GA + '</td><td>' + esc(fmtDayShort(lastM.day)) + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
+      }).join('') + '</tbody></table>';
   }
 
   function viewStats() {
@@ -1349,6 +1600,7 @@
         '<div class="card-b"><div class="formrow"><span class="muted small">Form</span>' + ms.slice(-10).reverse().map(function (m) {
           return '<a href="' + matchHref(m) + '" title="' + m.us.goals + '–' + m.them.goals + ' v ' + esc(m.them.name) + '">' + resChip(m.result) + '</a>';
         }).join('') + '</div></div></section>';
+      h += teamPatternsHtml(ms);
       h += teamSections(ms);
     }
     if (o) {
@@ -1376,7 +1628,7 @@
 
       h += '<section class="card"><div class="card-h"><h2>Opponents</h2>' +
         '<input class="search-in" type="search" data-filter="opp" placeholder="Filter clubs…" value="' + esc(ui.oppQuery) + '" aria-label="Filter opponents"></div>' +
-        '<div id="opp-wrap" class="opp-scroll">' + opponentsTableHtml(ms) + '</div></section>';
+        '<div id="opp-wrap" class="tw scroll-y">' + opponentsTableHtml(ms) + '</div></section>';
     }
     view.innerHTML = h;
   }
@@ -1389,10 +1641,26 @@
       if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
   }
+  /* Re-sorting or filtering redraws the page. On a phone the wide tables are scrolled sideways,
+     so remember where each table was scrolled and put it back, instead of jumping to the left. */
+  function tableScroll() {
+    return Array.prototype.map.call(view.querySelectorAll('.tw'), function (el) { return [el.scrollLeft, el.scrollTop]; });
+  }
+  function restoreTableScroll(saved) {
+    if (!saved) return;
+    var els = view.querySelectorAll('.tw');
+    saved.forEach(function (p, i) { if (els[i]) { els[i].scrollLeft = p[0]; els[i].scrollTop = p[1]; } });
+  }
+
   var lastRoute = null;
   function render() {
     hideTip();
     var hash = (location.hash || '').replace(/^#/, '');
+    var saved = hash === lastRoute ? tableScroll() : null;
+    route(hash);
+    restoreTableScroll(saved);
+  }
+  function route(hash) {
     var m;
     var routeChanged = hash !== lastRoute;
     if (routeChanged) {
@@ -1454,8 +1722,8 @@
     var f = el.getAttribute('data-filter');
     if (f === 'squad') {
       ui.squadQuery = el.value;
-      var sc = document.getElementById('squad-card');
-      if (sc) sc.innerHTML = squadTableHtml();
+      var sc = document.getElementById('squad-card'), keep = tableScroll();
+      if (sc) { sc.innerHTML = squadTableHtml(); restoreTableScroll(keep); }
     } else if (f === 'opp') {
       ui.oppQuery = el.value;
       var ow = document.getElementById('opp-wrap');
