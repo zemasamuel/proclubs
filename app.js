@@ -34,6 +34,7 @@
     sortK: 'rating',      // squad table sort column
     sortDir: -1,          // -1 = descending, 1 = ascending
     cmpSel: [],           // compare: selected player IDs, in pick order
+    cmpGroup: null,       // compare: position group the radar ranks against; null = the first pick's position
     matchSort: { k: 'rating', dir: -1 },   // match detail player-table sort
     per90Sort: { k: 'mins', dir: -1 },     // squad per-90 table sort
     insSort: { k: 'impact', dir: -1 }      // squad insights table sort
@@ -1206,24 +1207,24 @@
     tpct:          { label: 'Tackle%',         f: function (a) { return pct(a.tacklesMade, a.tackleAttempts); },                                                      fmt: pctF, tip: 'Tackle success rate — won tackles divided by attempts' },
     cga90:         { label: 'Conceded/90',     f: function (a) { return per90(a.goalsConceded, a.seconds); },                                                         fmt: f2,   inv: true, tip: 'Goals conceded per 90 — lower is better' },
     cs:            { label: 'Clean sheet%',    f: function (a) { return pct(a.cleanSheets, a.apps); },                                                                fmt: pctF, tip: 'Share of games with a clean sheet' },
+    svpct:         { label: 'Save%',           f: function (a) { return pct(a.saves, a.saves + a.goalsConceded); },                                                   fmt: pctF, tip: 'Saves out of shots on target faced (saves + goals conceded)' },
     sv90:          { label: 'Saves/90',        f: function (a) { return per90(a.saves, a.seconds); },                                                                 fmt: f1,   tip: 'Saves per 90 minutes' },
     motm:          { label: 'MOTM%',           f: function (a) { return pct(a.motm, a.apps); },                                                                       fmt: pctF, tip: 'Player of the match award rate' },
     pressing_rate: { label: 'Press rate',      f: function (a) { return a.seconds > 0 ? a.tackleAttempts / (a.seconds / MATCH_SECONDS) : null; }, fmt: f1, tip: 'Tackle attempts per 90 — measures defensive pressure applied' },
     atk_threat:    { label: 'Atk threat',      f: function (a) { return a.seconds > 0 ? (a.goals + a.assists + a.tries) / (a.seconds / MATCH_SECONDS) : null; }, fmt: f1, tip: 'Goals + assists + shots per 90 — overall attacking output' }
   };
-  /* percentile: 0–100 position of v among vals; inv=true means lower is better.
-     Ties count half, so everyone on the same value (say 0 assists) lands in the same spot. */
+  /* percentile: the share of the pool this value beats, 0–100; inv=true means lower is better.
+     Players level on the same value beat nobody among themselves, so 0 assists is the 0th percentile. */
   function percentile(v, vals, inv) {
     if (v === null || !vals.length) return null;
-    var below = 0, same = 0;
-    vals.forEach(function (x) { if (Math.abs(x - v) < 1e-9) same++; else if (inv ? x > v : x < v) below++; });
-    return Math.max(0, Math.min(100, (below + same / 2) / vals.length * 100));
+    var beaten = vals.filter(function (x) { return Math.abs(x - v) >= 1e-9 && (inv ? x > v : x < v); }).length;
+    return beaten / vals.length * 100;
   }
   /* cmpPool: who the radar ranks against — every player, ours and opponents, with 90+ minutes
      across the saved games. Fewer minutes than that and per-90 numbers swing wildly. */
   var CMP_POOL_MIN_SECONDS = MATCH_SECONDS;
-  function cmpPool() {
-    return cmpAvail().concat(idx.opps).filter(function (a) { return a.seconds >= CMP_POOL_MIN_SECONDS; });
+  function cmpPool(pos) {
+    return cmpAvail().concat(idx.opps).filter(function (a) { return a.seconds >= CMP_POOL_MIN_SECONDS && mainPos(a) === pos; });
   }
   /* cmpAvail: players with at least one tracked game, eligible for compare */
   function cmpAvail() { return idx.players.filter(function (a) { return a.apps > 0; }); }
@@ -1277,10 +1278,23 @@
     return s + '</svg>';
   }
 
-  /* Radar axes — 6-point hexagon, opposites pair meaningfully:
-     Rating ↔ Pass%  |  G/90 ↔ Shot conv%  |  A/90 ↔ Tackles/90
-     Clockwise from top: Rating, G/90, A/90, Pass%, Tackles/90, Shot conv% */
-  var CMP_RADAR_AXES = ['rating', 'g90', 'a90', 'pass', 't90', 'conv'];
+  /* Radar groups: our players are ranked against the opponents and teammates who mostly play
+     that position, on six stats picked for it. Axes run clockwise from the top and related stats
+     sit side by side, so each kind of player fills a different part of the hexagon. */
+  var CMP_GROUPS = [
+    /* scoring on the right (goals, conversion, volume), link-up and creating on the left */
+    { k: 'FWD', label: 'Forwards',    plural: 'forwards',    axes: ['g90', 'conv', 's90', 'pass', 'a90', 'gi'] },
+    /* attack at the top, ball-winning bottom-right, possession on the left feeding the assists */
+    { k: 'MID', label: 'Midfielders', plural: 'midfielders', axes: ['a90', 'g90', 'tpct', 't90', 'pass', 'p90'] },
+    /* winning the ball top-right, keeping it out bottom-right, playing out from the back on the left */
+    { k: 'DEF', label: 'Defenders',   plural: 'defenders',   axes: ['t90', 'tpct', 'cs', 'cga90', 'p90', 'pass'] },
+    /* shot-stopping top-right, keeping it out at the bottom, distribution on the left */
+    { k: 'GK',  label: 'Goalkeepers', plural: 'goalkeepers', axes: ['sv90', 'svpct', 'cga90', 'cs', 'p90', 'pass'] }
+  ];
+  function cmpGroupOf(sel) {
+    var k = ui.cmpGroup || (sel.length && mainPos(sel[0])) || 'FWD';
+    return CMP_GROUPS.filter(function (g) { return g.k === k; })[0] || CMP_GROUPS[0];
+  }
   /* Full stat list shown below the radar, grouped by section.
    * String items reference CMP keys; object items are section headers. */
   var CMP_ALL_STATS = [
@@ -1309,8 +1323,8 @@
 
     if (!sel.length) { return h + '<div class="card"><div class="card-b muted">Pick a player above to compare.</div></div>'; }
 
-    var pool = cmpPool(), ours = pool.filter(function (a) { return avail.indexOf(a) >= 0; }).length;
-    var radarAxes = CMP_RADAR_AXES.map(function (k) {
+    var grp = cmpGroupOf(sel), pool = cmpPool(grp.k), ours = pool.filter(function (a) { return avail.indexOf(a) >= 0; }).length;
+    var radarAxes = grp.axes.map(function (k) {
       var mt = CMP[k];
       return { k: k, mt: mt, vals: pool.map(mt.f).filter(function (v) { return v !== null; }) };
     });
@@ -1319,8 +1333,11 @@
     });
 
     var thin = sel.filter(function (a) { return a.seconds < CMP_POOL_MIN_SECONDS; });
-    h += '<section class="card"><div class="card-b">' + radarSvg(radarAxes, rows) +
-      '<p class="muted small radar-note">Percentiles against ' + pool.length + ' players with 90+ minutes in our games: ' + ours + ' of ours and ' + (pool.length - ours) + ' opponents. 50 is the middle of that group.' +
+    h += '<section class="card"><div class="card-b"><div class="radar-grp"><span class="muted small">Rank against</span><div class="seg" role="group" aria-label="Position group to rank against">' +
+      CMP_GROUPS.map(function (g) { return '<button data-act="cmp-group" data-g="' + g.k + '" aria-pressed="' + (g === grp) + '">' + g.label + '</button>'; }).join('') + '</div></div>' +
+      radarSvg(radarAxes, rows) +
+      '<p class="muted small radar-note">Ranked against ' + pool.length + ' ' + grp.plural + ' with 90+ minutes in our games: ' + ours + ' of ours and ' + (pool.length - ours) + ' opponents. 50 is the middle of that group.' +
+      (pool.length < 15 ? ' A small group, so each player moves the scale a lot.' : '') +
       (thin.length ? ' ' + esc(thin.map(function (a) { return a.name; }).join(', ')) + (thin.length === 1 ? ' has' : ' have') + ' under 90 minutes, so treat ' + (thin.length === 1 ? 'that shape' : 'those shapes') + ' loosely.' : '') + '</p></div></section>';
 
     /* Stat comparison list */
@@ -1817,6 +1834,7 @@
       ui.calMonth = d.getFullYear() + '-' + pad(d.getMonth() + 1);
     }
     else if (act === 'tab') ui.tab = el.getAttribute('data-tab');
+    else if (act === 'cmp-group') ui.cmpGroup = el.getAttribute('data-g');
     else if (act === 'cmp-toggle') {
       var cid = el.getAttribute('data-id'), ids = cmpSelected().map(function (a) { return a.id; }), at = ids.indexOf(cid);
       if (at >= 0) ids.splice(at, 1); else ids.push(cid);

@@ -596,3 +596,5 @@ td a.star { color: var(--text); font-weight: 600; }
 .h2h-line .sc.W { background: var(--win); } .h2h-line .sc.D { background: var(--draw); } .h2h-line .sc.L { background: var(--loss); }
 @media (max-width: 560px) { .h2h-sum { gap: 10px; } .h2h-n { min-width: 44px; padding: 6px 10px; } .h2h-sum .cr.s40 { width: 32px; height: 32px; } }
 .radar-note { text-align: center; margin: 4px auto 0; max-width: 560px; line-height: 1.45; }
+.radar-grp { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+@media (max-width: 600px) { .radar-grp .seg { width: 100%; } .radar-grp .seg button { flex: 1; padding: 7px 2px; font-size: 12px; } }
