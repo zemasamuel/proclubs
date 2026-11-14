@@ -23,6 +23,7 @@
     squadMode: 'tracked',
     squadQuery: '',
     squadPos: 'ALL',
+    statsMode: 'tracked',
     oppQuery: '',
     sortK: 'rating',
     sortDir: -1,
@@ -526,8 +527,9 @@
     var positions = [['ALL', 'All'], ['FWD', 'FWD'], ['MID', 'MID'], ['DEF', 'DEF'], ['GK', 'GK']];
     var h = notices() + '<div class="dayhead"><h1>Squad</h1>' +
       '<div class="seg" role="group" aria-label="Stats source">' +
-      '<button data-act="squad-mode" data-mode="tracked" aria-pressed="' + tracked + '">Tracked</button>' +
-      '<button data-act="squad-mode" data-mode="ea" aria-pressed="' + !tracked + '">All-time</button></div></div>';
+      '<button data-act="squad-mode" data-mode="tracked" aria-pressed="' + tracked + '">This season</button>' +
+      '<button data-act="squad-mode" data-mode="ea" aria-pressed="' + !tracked + '">EA career</button></div></div>' +
+      '<p class="squad-mode-note muted small">' + (tracked ? 'Stats from matches tracked on this site' : 'All-time career stats from EA\'s servers') + '</p>';
     h += '<div class="squad-tools">' +
       '<div class="pos-pills" role="group" aria-label="Filter by position">' +
       positions.map(function (p) {
@@ -910,7 +912,7 @@
 
     var activeParts = parts.filter(function (p) { return p.ms.length > 0; });
     if (activeParts.length) {
-      h += '<section class="card"><div class="card-h"><h2>When we play</h2><span class="muted small">CT</span></div><div class="tw"><table><thead><tr><th>Time of day</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF–GA</th><th>Win %</th></tr></thead><tbody>' +
+      h += '<section class="card"><div class="card-h"><h2>When we play</h2></div><div class="tw"><table><thead><tr><th>Time of day</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF–GA</th><th>Win %</th></tr></thead><tbody>' +
         activeParts.map(function (p) {
           var x = tally(p.ms);
           return '<tr><td class="name">' + p.d[0] + '<small>' + p.d[1] + '</small></td><td>' + x.P + '</td><td>' + x.W + '</td><td>' + x.D + '</td><td>' + x.L + '</td><td>' + x.GF + '–' + x.GA + '</td><td>' + pctS(x.W, x.P) + '</td></tr>';
@@ -981,15 +983,43 @@
         tiles([['Played', o.gamesPlayed], ['Record', o.wins + '-' + o.draws + '-' + o.losses], ['Win rate', pctS(o.wins, o.gamesPlayed)], ['Goals for', o.goals], ['Goals against', o.goalsAgainst], ['Skill rating', o.skillRating], ['Promotions', o.promotions], ['Relegations', o.relegations], ['Unbeaten run', o.unbeatenStreak], ['League games', o.leagueApps], ['Playoff games', o.playoffApps], ['Goal difference', (o.goals - o.goalsAgainst >= 0 ? '+' : '−') + Math.abs(o.goals - o.goalsAgainst)]]) + '</section>';
     }
     if (ms.length) {
-      h += '<h2 style="margin-top:6px">Leaderboards</h2><div class="grid2">' +
-        board('Average rating', leaders(avgRating, function (v) { return rt(v); })) +
-        board('Goals', leaders(function (a) { return a.goals; }, String)) +
-        board('Assists', leaders(function (a) { return a.assists; }, String)) +
-        board('Goals + assists', leaders(function (a) { return a.goals + a.assists; }, String)) +
-        board('Goals + assists per 90', leaders(function (a) { return per90(a.goals + a.assists, a.seconds); }, f2)) +
-        board('Player of the match', leaders(function (a) { return a.motm; }, String)) +
-        board('Pass accuracy', leaders(function (a) { return pct(a.passesMade, a.passAttempts); }, function (v) { return Math.round(v) + '%'; })) +
-        board('Tackles won per 90', leaders(function (a) { return per90(a.tacklesMade, a.seconds); }, f1)) + '</div>';
+      var sTracked = ui.statsMode === 'tracked';
+      h += '<div class="dayhead" style="margin-top:6px"><h2>Leaderboards</h2>' +
+        '<div class="seg" role="group" aria-label="Stats source">' +
+        '<button data-act="stats-mode" data-mode="tracked" aria-pressed="' + sTracked + '">This season</button>' +
+        '<button data-act="stats-mode" data-mode="ea" aria-pressed="' + !sTracked + '">EA career</button>' +
+        '</div></div>';
+      var lboards;
+      if (sTracked) {
+        lboards = '<div class="grid2">' +
+          board('Average rating', leaders(avgRating, function (v) { return rt(v); })) +
+          board('Goals', leaders(function (a) { return a.goals; }, String)) +
+          board('Assists', leaders(function (a) { return a.assists; }, String)) +
+          board('Goals + assists', leaders(function (a) { return a.goals + a.assists; }, String)) +
+          board('Goals + assists per 90', leaders(function (a) { return per90(a.goals + a.assists, a.seconds); }, f2)) +
+          board('Player of the match', leaders(function (a) { return a.motm; }, String)) +
+          board('Pass accuracy', leaders(function (a) { return pct(a.passesMade, a.passAttempts); }, function (v) { return Math.round(v) + '%'; })) +
+          board('Tackles won per 90', leaders(function (a) { return per90(a.tacklesMade, a.seconds); }, f1)) + '</div>';
+      } else {
+        /* EA career stats from db.members — build a parallel leaders fn */
+        var memPlayers = idx.players.filter(function (a) { return db.members[a.name] && db.members[a.name].gamesPlayed > 0; });
+        function memLeaders(valueFn, fmt) {
+          return memPlayers.map(function (a) { return { a: a, v: valueFn(db.members[a.name]) }; })
+            .filter(function (r) { return r.v !== null && r.v !== undefined && r.v > 0; })
+            .sort(function (x, y) { return y.v - x.v || y.a.apps - x.a.apps; })
+            .map(function (r) { return { a: r.a, s: fmt(r.v) }; });
+        }
+        lboards = '<div class="grid2">' +
+          board('Rating (career avg)', memLeaders(function (m) { return m.ratingAve || null; }, f2)) +
+          board('Goals (career)', memLeaders(function (m) { return m.goals; }, String)) +
+          board('Assists (career)', memLeaders(function (m) { return m.assists; }, String)) +
+          board('Goals + assists (career)', memLeaders(function (m) { return (m.goals || 0) + (m.assists || 0); }, String)) +
+          board('Win rate (career)', memLeaders(function (m) { return m.gamesPlayed ? m.winRate : null; }, function (v) { return v + '%'; })) +
+          board('Player of the match (career)', memLeaders(function (m) { return m.motm; }, String)) +
+          board('Pass accuracy (career)', memLeaders(function (m) { return m.gamesPlayed ? m.passSuccessRate : null; }, function (v) { return Math.round(v) + '%'; })) +
+          board('Games played (career)', memLeaders(function (m) { return m.gamesPlayed; }, String)) + '</div>';
+      }
+      h += lboards;
 
       h += squadPer90();
 
@@ -1143,8 +1173,27 @@
       if (at >= 0) ids.splice(at, 1); else if (ids.length < MAX_COMPARE) ids.push(cid);
       ui.cmp.sel = ids;
     }
-    else if (act === 'squad-mode') ui.squadMode = el.getAttribute('data-mode');
-    else if (act === 'squad-pos') ui.squadPos = el.getAttribute('data-pos');
+    else if (act === 'stats-mode') {
+      ui.statsMode = el.getAttribute('data-mode');
+      var sy0 = window.scrollY || window.pageYOffset;
+      render();
+      window.scrollTo(0, sy0);
+      return;
+    }
+    else if (act === 'squad-mode') {
+      ui.squadMode = el.getAttribute('data-mode');
+      var sy1 = window.scrollY || window.pageYOffset;
+      render();
+      window.scrollTo(0, sy1);
+      return;
+    }
+    else if (act === 'squad-pos') {
+      ui.squadPos = el.getAttribute('data-pos');
+      var sy2 = window.scrollY || window.pageYOffset;
+      render();
+      window.scrollTo(0, sy2);
+      return;
+    }
     else if (act === 'sort') { var k = el.getAttribute('data-k'); if (ui.sortK === k) ui.sortDir = -ui.sortDir; else { ui.sortK = k; ui.sortDir = -1; } }
     else if (act === 'match-sort') { var mk = el.getAttribute('data-k'); if (ui.matchSort.k === mk) ui.matchSort.dir = -ui.matchSort.dir; else { ui.matchSort.k = mk; ui.matchSort.dir = -1; } }
     else if (act === 'per90-sort') { var pk = el.getAttribute('data-k'); if (ui.per90Sort.k === pk) ui.per90Sort.dir = -ui.per90Sort.dir; else { ui.per90Sort.k = pk; ui.per90Sort.dir = -1; } }

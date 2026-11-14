@@ -100,6 +100,7 @@ main.anim > * { animation: viewFade .18s ease-out both; }
 
 /* squad filter toolbar & search input */
 .squad-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.squad-mode-note { margin: -4px 0 8px; }
 .pos-pills { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .pos-pill {
   border: 1px solid var(--line);
