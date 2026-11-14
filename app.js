@@ -273,7 +273,7 @@
     var arr = Object.keys(per).map(function (k) { return per[k]; });
     var need = Math.max(1, Math.ceil(list.length / 2));
     var rated = arr.filter(function (a) { return a.rn >= need; }).sort(function (a, b) { return b.rs / b.rn - a.rs / a.rn; });
-    var scorers = arr.filter(function (a) { return a.g + a.as > 0; }).sort(function (a, b) { return b.g - a.g || b.as - a.as; });
+    var scorers = arr.filter(function (a) { return a.g + a.as > 0; }).sort(function (a, b) { return (b.g + b.as) - (a.g + a.as) || b.g - a.g; });
     var h = '<div class="grid2">';
     h += '<section class="card"><div class="card-h"><h2>Best average rating</h2><span class="muted small">min ' + games(need) + '</span></div><div class="plist">' +
       (rated.slice(0, 5).map(function (a, i) {
@@ -324,14 +324,14 @@
       '<div class="board"><div class="team">' + crest(m.us, 64) + '<span>' + esc(m.us.name) + '</span></div><div class="score">' + m.us.goals + ' – ' + m.them.goals + '</div><div class="team">' + crest(m.them, 64) + '<span>' + esc(m.them.name) + '</span></div></div>' +
       '<div class="row" style="justify-content:center">' + resChip(m.result) + '<span class="muted small">' + (m.dnf ? 'Ended early (DNF)' : 'Full time') + '</span></div>' +
       '<div class="scorers"><div>' + scorerList(m.players.us, m.us.goals) + '</div><div>' + scorerList(m.players.them, m.them.goals) + '</div></div></div>';
-    var tabs = [['facts', 'Facts'], ['lineup', 'Lineup'], ['shots', 'Shots'], ['stats', 'Stats'], ['players', 'Player stats']];
+    var tabs = [['facts', 'Facts'], ['lineup', 'Lineup'], ['stats', 'Stats'], ['players', 'Player stats']];
     h += '<div class="tabs" role="tablist">' + tabs.map(function (t) {
       return '<button role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (ui.tab === t[0]) + '">' + t[1] + '</button>';
     }).join('') + '</div></section>';
 
     if (ui.tab === 'facts') h += matchFacts(m);
     else if (ui.tab === 'lineup') h += matchLineup(m);
-    else if (ui.tab === 'shots') h += matchShots(m);
+    else if (ui.tab === 'shots') { ui.tab = 'facts'; h += matchFacts(m); }
     else if (ui.tab === 'stats') h += matchStats(m);
     else h += matchPlayers(m);
     view.innerHTML = h;

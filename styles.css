@@ -5,10 +5,10 @@
   --line: #dfe4e1;
   --text: #141a18;
   --muted: #5f6b66;
-  --accent: #0b8f5a;
+  --accent: #2e9e5b;
   --accent-ink: #ffffff;
-  --accent-soft: #dff3ea;
-  --win: #0b8f5a;
+  --accent-soft: #d8f5e6;
+  --win: #2e9e5b;
   --draw: #7b8682;
   --loss: #d5413a;
   --pitch-a: #2f8f5b;
@@ -59,8 +59,7 @@ p { margin: 0; }
 .top { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
 .top-in { max-width: 860px; margin: 0 auto; padding: 0 16px; display: flex; align-items: center; gap: 20px; height: 54px; }
 .brand { font: 800 22px/1 var(--font-display); letter-spacing: -.03em; display: flex; align-items: center; gap: 8px; }
-.brand-mark { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); position: relative; }
-.brand-mark::after { content: ""; position: absolute; right: -3px; top: 3px; width: 9px; height: 9px; background: var(--surface); transform: rotate(45deg); }
+.brand-mark { width: 28px; height: 28px; border-radius: 6px; display: block; object-fit: contain; }
 .nav { display: flex; gap: 4px; overflow-x: auto; margin-left: auto; scrollbar-width: none; }
 .nav::-webkit-scrollbar { display: none; }
 .nav a { padding: 7px 12px; border-radius: 999px; font-weight: 600; color: var(--muted); white-space: nowrap; }
