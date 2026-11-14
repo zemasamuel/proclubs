@@ -13,6 +13,7 @@
   var DAY_STARTS_AT_HOUR = 5;      // games ending before 5 AM count for the previous day
   var MATCH_SECONDS = 5400;        // game-clock seconds in 90 minutes
   var SUB_MARGIN = 60;             // played this many seconds less than the longest-serving player = sub
+  var SAME_SESSION_GAP = 3600;     // an earlier game within this many seconds on the same night counts as the same session
   var TYPE_LABEL = { league: 'League', playoff: 'Playoffs', friendly: 'Friendlies' };
   var POS_LABEL = { GK: 'Goalkeeper', DEF: 'Defender', MID: 'Midfielder', FWD: 'Forward', 'N/A': 'Unknown' };
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -105,10 +106,14 @@
   var ICON_BOOT = '<svg class="i-boot" viewBox="0 0 480.043 480.043" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M432.7,341.222c-4-0.1-8-0.1-12.4-0.1c-6.5,0-12.199,0.1-17.8,0.4l5.7,31.299c0.2,1.301,1.4,2.201,2.7,2.201h27.7c1.3,0,2.399-0.9,2.699-2.201l6.5-31.6c-1.699,0-3.3,0-5,0C439.601,341.321,436.3,341.321,432.7,341.222z" fill="currentColor"/><path d="M334.3,373.321c0.2,1.301,1.4,2.201,2.7,2.201h27.7c1.3,0,2.4-0.9,2.7-2.201l6.2-30.6c-12.301,0.5-27.601,1-44.5,1.5L334.3,373.321z" fill="currentColor"/><path d="M119.4,377.622c0.2,1.3,1.4,2.199,2.7,2.199h27.7c1.3,0,2.4-0.899,2.7-2.199l5.8-28.5c-17.5,0.4-32.6,0.699-43.9,0.9L119.4,377.622z" fill="currentColor"/><path d="M49.8,343.722l6.2,33.9c0.2,1.3,1.4,2.199,2.7,2.199h27.7c1.3,0,2.4-0.899,2.7-2.199l5.7-27.7c-14.8-0.7-30.2-3.601-44.4-8.3C49.9,342.321,49.7,343.022,49.8,343.722z" fill="currentColor"/><path d="M437.7,145.422c-10.7,0-9.7,32.4-32.5,40.7c-11,4-21.6,5.6-30.9,5.6c-16.6,0-29.3-4.9-34-9.5c-7.399-7.2,59.801-29.9,45.4-49.4l-22-29.5c-1.5-2-3.8-3.1-6.1-3.1c-1.5,0-3,0.5-4.4,1.5l-73.8,54.2c0,0-28.2,0-33.1,16.5c0,0-0.801-0.1-2.201-0.1c-6.1,0-22.699,1.3-27.199,15.2c0,0-69.9,13.8-111.6,36.2c-41.6,22.301-105.3,21-105.3,56.5s56.4,59.2,101.1,59.2c44.7,0,269-6.8,300.4-8.601c6.7-0.399,13-0.5,18.9-0.5c8.399,0,15.899,0.201,22.5,0.201c23.8,0,36.1-3,36.5-30.301c0.6-40.199,5.5-102.4-25.101-141.3C446.4,149.222,441.3,145.422,437.7,145.422z M292.2,302.222h-37c-0.7,0-1.3-0.3-1.8-0.699l-80.3-73.5c-1.6-1.5-0.9-4.1,1.1-4.6l28-7.5c0.9-0.2,1.9,0,2.5,0.6l89.399,81C295.9,299.122,294.7,302.222,292.2,302.222z M366.9,302.122l-39-0.5c-0.7,0-1.3-0.301-1.8-0.7l-99.601-90.3c-1.6-1.5-1-4.1,1.1-4.7l27.9-7.5c0.9-0.2,1.801,0,2.5,0.6l110.8,98.299C370.601,299.022,369.4,302.122,366.9,302.122z" fill="currentColor"/></svg>';
 
   var ICON_RC = svg('i-card', '<rect x="6.5" y="4" width="11" height="16" rx="2" fill="#e0352f"/>');
-  var ICON_SUB = svg('i-sub',
-    '<circle cx="12" cy="12" r="10" fill="#1ea55b"/>' +
-    '<path d="M7.5 12h9M13 8.5L16.5 12 13 15.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
-  );
+  /* Sub arrows: green up = came on, red down = went off, grey = direction unknown */
+  function subIcon(color, d) {
+    return svg('i-sub', '<circle cx="12" cy="12" r="10" fill="' + color + '"/>' +
+      '<path d="' + d + '" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>');
+  }
+  var ICON_SUB_ON = subIcon('#1ea55b', 'M12 17V7.5M8.5 11 12 7.5 15.5 11');
+  var ICON_SUB_OFF = subIcon('#e0352f', 'M12 7v9.5M8.5 13 12 16.5 15.5 13');
+  var ICON_SUB = subIcon('#7d8a85', 'M7.5 12h9M13 8.5L16.5 12 13 15.5');
 
   function initials(name) { var s = String(name).replace(/[^A-Za-z0-9]/g, ''); return esc((s.slice(0, 2) || '?').toUpperCase()); }
   function resChip(r) { return '<span class="res ' + r + '" title="' + ({ W: 'Win', D: 'Draw', L: 'Loss' }[r]) + '">' + r + '</span>'; }
@@ -203,8 +208,11 @@
   function buildIndex() {
     var matches = db.matches.slice().sort(function (a, b) { return a.ts - b.ts; });
     var byDay = dict(), byId = dict(), players = dict();
-    matches.forEach(function (m) {
+    matches.forEach(function (m, i) {
       m.day = dayKeyOf(m.ts);
+      /* the game played just before this one on the same night, used to tell subs on from subs off */
+      var pm = matches[i - 1];
+      m.prev = pm && pm.day === m.day && m.ts - pm.ts <= SAME_SESSION_GAP ? pm : null;
       m.full = m.players.us.concat(m.players.them).reduce(function (mx, p) { return Math.max(mx, p.secondsPlayed); }, 0);
       (byDay[m.day] = byDay[m.day] || []).push(m);
       byId[slug(m.id)] = m;
@@ -247,11 +255,23 @@
   }
   function record(t) { return t.W + 'W ' + t.D + 'D ' + t.L + 'L'; }
   function isSub(p, m) { return m.full > 0 && p.secondsPlayed > 0 && p.secondsPlayed < m.full - SUB_MARGIN; }
-  // We only know how long a player was on the pitch, not whether they subbed on or off.
-  // Always show actual minutes played (secondsPlayed) so the number is never wrong.
-  function minsCell(p, m) {
-    var n = mins(p.secondsPlayed);
-    return isSub(p, m) ? '<span class="submin" title="Partial appearance (' + n + ' min)">' + ICON_SUB + n + '</span>' : n;
+  /* EA only says how long a player was on the pitch, not when they came on or went off.
+     The game before it on the same night settles it: a player who was in that game was
+     already in the lobby at kick-off, so a short game means they went off; a player who
+     was not in it joined part-way, so they came on. In the first game of a night there
+     is nothing to compare against, so the arrow is grey and shows minutes played. */
+  function subOf(p, m) {
+    if (!isSub(p, m)) return null;
+    var played = mins(p.secondsPlayed), dir = null;
+    if (m.prev) dir = m.prev.players.us.some(function (q) { return q.id === p.id; }) ? 'off' : 'on';
+    if (dir === 'on') { var at = Math.max(1, Math.round((m.full - p.secondsPlayed) / 60)); return { dir: dir, minute: at, icon: ICON_SUB_ON, tip: 'Came on ' + at + '’, played ' + played + ' min' }; }
+    if (dir === 'off') return { dir: dir, minute: played, icon: ICON_SUB_OFF, tip: 'Went off ' + played + '’' };
+    return { dir: null, minute: played, icon: ICON_SUB, tip: 'Played ' + played + ' min' };
+  }
+  /* Min column: always minutes played; the arrow says whether they came on or went off */
+  function minsCell(p, m, us) {
+    var n = mins(p.secondsPlayed), s = us ? subOf(p, m) : (isSub(p, m) ? { icon: ICON_SUB, tip: 'Played ' + n + ' min' } : null);
+    return s ? '<span class="submin" title="' + esc(s.tip) + '">' + s.icon + n + '</span>' : n;
   }
   /* Stat tile grid: list of [label, value] pairs → HTML */
   function tiles(list, cls) {
@@ -442,8 +462,10 @@
   }
   function pitchPlayer(p, m, us) {
     var cardHtml = p.redCards ? '<span class="pcard" title="Red card">' + ICON_RC + '</span>' : '';
+    var s = us ? subOf(p, m) : null;
+    if (!us && isSub(p, m)) s = { minute: mins(p.secondsPlayed), icon: ICON_SUB, tip: 'Played ' + mins(p.secondsPlayed) + ' min' };
     var inner = '<span class="av">' + playerImg(p.name) +
-      (isSub(p, m) ? '<span class="sub" title="Partial appearance (' + mins(p.secondsPlayed) + ' min)"><span class="sub-min">' + mins(p.secondsPlayed) + '’</span><i class="sub-ic">' + ICON_SUB + '</i></span>' : '') +
+      (s ? '<span class="sub" title="' + esc(s.tip) + '"><span class="sub-min">' + s.minute + '’</span><i class="sub-ic">' + s.icon + '</i></span>' : '') +
       rt(p.rating, false, p.motm) +
       cardHtml +
       (p.assists ? '<span class="evs l" title="' + p.assists + ' A">' + evIcons(ICON_BOOT, p.assists, 'as') + '</span>' : '') +
@@ -515,7 +537,7 @@
     }
     return '<div class="tw"><table><thead><tr><th>Player</th><th>Pos</th>' + PT_COLS.map(th).join('') + '</tr></thead><tbody>' +
       players.map(function (p) {
-        return '<tr><td class="name">' + (us ? '<a href="' + playerHref(p.id) + '">' + esc(p.name) + '</a>' : esc(p.name)) + '</td><td>' + p.pos + '</td><td>' + rt(p.rating, false, p.motm) + '</td><td>' + minsCell(p, m) + '</td><td>' + p.goals + '</td><td>' + p.assists + '</td><td>' + tries(p) + '</td><td>' + pctS(p.passesMade, p.passAttempts) + '</td><td>' + p.tacklesMade + '/' + p.tackleAttempts + '</td><td>' + p.saves + '</td><td>' + p.redCards + '</td></tr>';
+        return '<tr><td class="name">' + (us ? '<a href="' + playerHref(p.id) + '">' + esc(p.name) + '</a>' : esc(p.name)) + '</td><td>' + p.pos + '</td><td>' + rt(p.rating, false, p.motm) + '</td><td>' + minsCell(p, m, us) + '</td><td>' + p.goals + '</td><td>' + p.assists + '</td><td>' + tries(p) + '</td><td>' + pctS(p.passesMade, p.passAttempts) + '</td><td>' + p.tacklesMade + '/' + p.tackleAttempts + '</td><td>' + p.saves + '</td><td>' + p.redCards + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
   function matchPlayers(m) {
@@ -1126,7 +1148,7 @@
       h += '<section class="card"><div class="card-h"><h2>Match log</h2></div><div class="tw"><table><thead><tr><th>Match</th><th>Result</th><th>Pos</th><th>Min</th><th>G</th><th>A</th><th>Shots</th><th>Pass %</th><th>Tackles</th><th>Rating</th></tr></thead><tbody>' +
         a.log.slice().reverse().map(function (x) {
           var p = x.p, m = x.m;
-          return '<tr><td class="name"><a href="' + matchHref(m) + '">v ' + esc(m.them.name) + '<small>' + esc(fmtDayShort(m.day)) + ' · ' + TYPE_LABEL[m.type] + '</small></a></td><td>' + resChip(m.result) + ' ' + m.us.goals + '–' + m.them.goals + '</td><td>' + p.pos + '</td><td>' + minsCell(p, m) + '</td><td>' + p.goals + '</td><td>' + p.assists + '</td><td>' + tries(p) + '</td><td>' + pctS(p.passesMade, p.passAttempts) + '</td><td>' + p.tacklesMade + '</td><td>' + rt(p.rating, false, p.motm) + '</td></tr>';
+          return '<tr><td class="name"><a href="' + matchHref(m) + '">v ' + esc(m.them.name) + '<small>' + esc(fmtDayShort(m.day)) + ' · ' + TYPE_LABEL[m.type] + '</small></a></td><td>' + resChip(m.result) + ' ' + m.us.goals + '–' + m.them.goals + '</td><td>' + p.pos + '</td><td>' + minsCell(p, m, true) + '</td><td>' + p.goals + '</td><td>' + p.assists + '</td><td>' + tries(p) + '</td><td>' + pctS(p.passesMade, p.passAttempts) + '</td><td>' + p.tacklesMade + '</td><td>' + rt(p.rating, false, p.motm) + '</td></tr>';
         }).join('') + '</tbody></table></div></section>';
     }
     view.innerHTML = h;
