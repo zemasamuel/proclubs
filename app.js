@@ -545,7 +545,7 @@
       '<button data-act="squad-mode" data-mode="ea" aria-pressed="' + (mode === 'ea') + '">Career</button>' +
       '<button data-act="squad-mode" data-mode="per90" aria-pressed="' + (mode === 'per90') + '">Per 90</button>' +
       '</div></div>' +
-      (mode === 'ea' ? '<p class="squad-mode-note muted small">All-time career stats from EA\'s servers</p>' : '');
+      '';
 
     if (mode === 'per90') {
       /* Per-90 view — no position filter, just the table */
