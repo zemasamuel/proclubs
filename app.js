@@ -101,6 +101,8 @@
   var ICON_STAR = svg('i-star', '<path d="M12 1.8l3.1 6.6 7.2.9-5.3 5 1.4 7.1L12 17.9l-6.4 3.5 1.4-7.1-5.3-5 7.2-.9z"/>');
   var ICON_SHARE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
 
+  var ICON_CAL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>';
+
   /* SVGRepo soccer ball (emojione-monotone, viewBox 0 0 64 64) */
   var ICON_BALL = '<svg class="i-ball" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M61.934 31.992c.021-.713.209-10.904-5.822-17.538c-.268-.593-1.539-2.983-5.641-5.904a41.959 41.959 0 0 0-5.775-3.763l-.008-.004C44.432 4.646 39.43 2 33.359 2c-.461 0-.917.027-1.368.058V2.05c-4.629-.101-9.227 1.09-11.998 2.341c-2.458 1.11-5.187 2.971-5.384 3.115C11.205 9.41 4.75 17.051 4.239 21.1c-2.063 2.637-3.787 14.482.004 21.697c2.658 10.027 12.664 15.045 13.46 15.43c.484.309 5.937 3.68 12.636 3.68c.281 0 1.98.094 2.586.094c7.241 0 17.971-5.104 20.217-9.102c6.171-4.514 9.37-16.147 8.792-20.907M17.758 47.055c-2.869-4.641-4.504-10.705-4.854-12.098c.908-1.361 5.387-7.965 7.939-9.952c1.445.266 7.479 1.374 13.17 2.404c.715 1.853 3.852 10.029 4.75 13.185c-.99 1.174-4.879 5.702-8.708 9.248c-4.065.019-10.979-2.326-12.297-2.787M53.824 14.58c-.012.45-.119 2.05-.885 3.887c-1.521-.777-5.344-2.441-10.584-2.722c-.793-1.171-3.777-5.254-8.49-8.086c.645-1.262 1.543-2.801 2.068-3.27c.17-.048.434-.092.836-.092c2.527 0 6.893 1.655 7.273 1.802c.403.213 8.251 4.439 9.782 8.481M11.773 34.012c-3.423-.584-5.458-1.648-6.066-2.008c-1.273-4.617-.248-9.607-.09-10.322c1.256-2.246 4.832-7.971 7.191-9.058c2.445-.499 5.494.121 6.736.424c-.117 1.615-.342 6.127.326 10.862c-2.706 2.178-6.989 8.447-8.097 10.102M31.685 3.53c.768.057 1.895.225 2.667.454c-.77 1.024-1.559 2.542-1.932 3.292c-1.57.257-7.533 1.397-12.211 4.43c-.943-.25-3.791-.917-6.488-.687c.668-1.293 1.666-2.249 1.773-2.347c.371-.266 7.513-5.263 16.191-5.155v.013m19.096 38.093c-1.17-.048-5.678-.305-10.621-1.466c-.947-3.302-4.074-11.444-4.789-13.296a556.586 556.586 0 0 1 6.928-9.654c5.688.312 9.682 2.387 10.455 2.82c3.295 5.299 4.018 10.711 4.117 11.615c-1.75 5.446-5.211 9.113-6.09 9.981M3.655 28.519c.084 1.266.287 2.599.654 3.917a11.738 11.738 0 0 0-.682 2.651a33.039 33.039 0 0 1 .028-6.568m9.644 23.359c1.508-1.453 3.367-2.867 4.088-3.401c1.63.574 8.324 2.837 12.591 2.837c.727.975 3.104 4.028 6.018 6.362c-1.814 1.775-4.434 2.613-4.897 2.752c-8.127.218-16.042-4.35-17.8-8.55m21.463 8.538c.922-.537 1.883-1.244 2.678-2.139c1.297-.179 6.863-1.137 11.893-4.832c.332.036.879.08 1.49.063c-3.018 2.957-10.382 6.26-16.061 6.908m15.424-8.376c1.807-4.708 1.73-8.258 1.641-9.392c.992-.972 4.396-4.599 6.285-10.113c1.018.17 1.68.429 1.994.574c.109.4.291 1.324.188 2.725c-.77 5.043-3.428 12.6-8.084 15.941c-.468.239-1.292.291-2.024.265" fill="currentColor"/></svg>';
 
@@ -192,23 +194,23 @@
   /* newAgg: an empty season total for one player; buildIndex fills it from the saved matches */
   function newAgg(id, name) {
     return { id: id, name: name || '', apps: 0, goals: 0, assists: 0, passesMade: 0, passAttempts: 0, tacklesMade: 0, tackleAttempts: 0,
-             saves: 0, motm: 0, cleanSheets: 0, goalsConceded: 0, seconds: 0, ratingSum: 0, rated: 0, W: 0, D: 0, L: 0, pos: {}, log: [],
+             saves: 0, motm: 0, cleanSheets: 0, goalsConceded: 0, seconds: 0, ratingSum: 0, rated: 0, W: 0, D: 0, L: 0, pos: {}, posSec: {}, log: [],
              teamGoals: 0, tries: 0, subs: 0 };
   }
   function avgRating(a) { return a.rated ? a.ratingSum / a.rated : null; }
+  /* mainPos: the position a player counts as.
+     Ours: the position with the most minutes over their last 3 games.
+     Opponents (and ours with no usable recent games): the position with the most minutes in all saved games. */
   function mainPos(a) {
-    /* For our players (who have a log), use their last 3 games to decide.
-       For opponents (no log), fall back to minutes-across-all-games. */
-    if (a.log && a.log.length) {
-      var recent = a.log.slice(-3), tally = {};
-      recent.forEach(function (x) { if (x.p.pos && x.p.pos !== 'N/A') tally[x.p.pos] = (tally[x.p.pos] || 0) + (x.p.secondsPlayed || 0); });
+    function top(t) {
       var best = null;
-      Object.keys(tally).forEach(function (p) { if (!best || tally[p] > tally[best]) best = p; });
-      if (best) return best;
+      Object.keys(t).forEach(function (p) { if (p !== 'N/A' && (best === null || t[p] > t[best])) best = p; });
+      return best;
     }
-    var best = null;
-    Object.keys(a.pos).forEach(function (p) { if (!best || a.pos[p] > a.pos[best]) best = p; });
-    if (best) return best;
+    var recent = {};
+    a.log.slice(-3).forEach(function (x) { recent[x.p.pos] = (recent[x.p.pos] || 0) + x.p.secondsPlayed; });
+    var pos = top(recent) || top(a.posSec) || top(a.pos);
+    if (pos) return pos;
     var mem = db.members[a.name];
     return mem && mem.favoritePosition !== 'N/A' ? mem.favoritePosition : null;
   }
@@ -232,7 +234,7 @@
       snap[m.result]++;
       snap.teamGoals += m.us.goals; snap.tries += tries(p);
     });
-    snap.pos[posKey] = snap.seconds;
+    snap.pos[posKey] = snap.apps; snap.posSec[posKey] = snap.seconds;
     snap._posKey = posKey; /* remember which slice this is */
     snap._src = a;        /* back-reference to full aggregate */
     return snap;
@@ -252,6 +254,7 @@
     a[result]++;
     a.teamGoals += teamGoals; a.tries += tries(p);
     a.pos[p.pos] = (a.pos[p.pos] || 0) + 1;
+    a.posSec[p.pos] = (a.posSec[p.pos] || 0) + p.secondsPlayed;
   }
 
   /* buildIndex: sort the matches and derive every lookup the views need —
@@ -322,6 +325,9 @@
     var n = mins(p.secondsPlayed), s = us ? subOf(p, m) : (isSub(p, m) ? { icon: ICON_SUB, tip: 'Played ' + n + ' min' } : null);
     return s ? '<span class="submin" title="' + esc(s.tip) + '">' + s.icon + n + '</span>' : n;
   }
+  /* isCompact: true on a phone-width screen. Charts are drawn smaller there so their text is not shrunk to nothing. */
+  var compactMq = window.matchMedia ? window.matchMedia('(max-width: 600px)') : null;
+  function isCompact() { return !!(compactMq && compactMq.matches); }
   /* Stat tile grid: list of [label, value] pairs → HTML */
   function tiles(list, cls) {
     return '<div class="tiles' + (cls ? ' ' + cls : '') + '">' + list.map(function (t) { return '<div class="tile"><b>' + t[1] + '</b><span>' + t[0] + '</span></div>'; }).join('') + '</div>';
@@ -357,18 +363,16 @@
       '<div class="meta">' + [idx.matches.length ? record(t) : '', db.club.overall ? 'Skill rating ' + db.club.overall.skillRating : ''].filter(Boolean).join(' · ') + '</div></div></div>';
 
     h += '<div class="card"><div class="card-b" style="display:flex;flex-direction:column;gap:12px">';
-    h += '<div class="datebar"><a class="arrow" href="#day-' + addDays(sel, -1) + '" aria-label="Previous day">‹</a><div class="strip">';
+    h += '<div class="datebar"><a class="arrow" ' + (prevDay ? 'href="#day-' + prevDay + '"' : 'aria-disabled="true"') + ' aria-label="Previous match day" title="Previous match day">‹</a><div class="strip">';
     for (var i = -3; i <= 3; i++) {
       var k = addDays(sel, i), d = dateOfKey(k), n = (idx.byDay[k] || []).length;
       h += '<a href="#day-' + k + '" class="' + (i === 0 ? 'sel ' : '') + (n ? 'has' : '') + '"' + (i === 0 ? ' aria-current="date"' : '') + '>' +
         '<span>' + (k === today ? 'Today' : WD[d.getDay()]) + '</span><b>' + d.getDate() + '</b><span class="cnt">' + (n ? n : '') + '</span></a>';
     }
-    h += '</div><a class="arrow" href="#day-' + addDays(sel, 1) + '" aria-label="Next day">›</a></div>';
-    h += '<div class="daytools"><div class="grp">' +
-      '<a class="btn" ' + (prevDay ? 'href="#day-' + prevDay + '"' : 'aria-disabled="true"') + '>‹ Previous match day</a>' +
-      '<a class="btn" ' + (nextDay ? 'href="#day-' + nextDay + '"' : 'aria-disabled="true"') + '>Next match day ›</a></div>' +
-      '<div class="grp"><a class="btn" href="#day-' + today + '">Today</a>' +
-      '<button class="btn" data-act="cal-toggle" aria-expanded="' + ui.calOpen + '">' + (ui.calOpen ? 'Hide calendar' : 'Calendar') + '</button></div></div>';
+    h += '</div><a class="arrow" ' + (nextDay ? 'href="#day-' + nextDay + '"' : 'aria-disabled="true"') + ' aria-label="Next match day" title="Next match day">›</a></div>';
+    h += '<div class="daytools">' +
+      '<button class="btn" data-act="cal-toggle" aria-expanded="' + ui.calOpen + '">' + ICON_CAL + (ui.calOpen ? 'Hide calendar' : 'Calendar') + '</button>' +
+      (sel !== today ? '<a class="btn" href="#day-' + today + '">Today</a>' : '') + '</div>';
     h += '</div>';
     if (ui.calOpen) h += calendar(sel, today);
     h += '</div>';
@@ -664,7 +668,7 @@
   function leaderboardsHtml(career) {
     var pctOne = function (v) { return f1(v) + '%'; };
     if (career) {
-      return '<div class="grid2">' +
+      return '<div class="grid2 boards">' +
         board('Rating', memLeaders(function (m) { return m.ratingAve; }, function (v) { return rt(v); }), gamesFnMem) +
         board('Goals', memLeaders(function (m) { return m.goals; }, String), gamesFnMem) +
         board('Assists', memLeaders(function (m) { return m.assists; }, String), gamesFnMem) +
@@ -674,7 +678,7 @@
         board('Pass accuracy', memLeaders(function (m) { return m.passSuccessRate; }, pctOne), gamesFnMem) +
         board('Games played', memLeaders(function (m) { return m.gamesPlayed; }, String), gamesFnMem) + '</div>';
     }
-    return '<div class="grid2">' +
+    return '<div class="grid2 boards">' +
       board('Average rating', leaders(avgRating, function (v) { return rt(v); })) +
       board('Goals', leaders(function (a) { return a.goals; }, String)) +
       board('Assists', leaders(function (a) { return a.assists; }, String)) +
@@ -1103,19 +1107,19 @@
   function ratingChart(log) {
     var pts = log.filter(function (x) { return x.p.rating > 0; });
     if (!pts.length) return '<p class="muted">No ratings yet.</p>';
-    var W = 720, H = 220, L = 34, R = 14, T = 14, B = 28;
+    var c = isCompact(), W = c ? 360 : 720, H = c ? 190 : 220, L = c ? 24 : 34, R = c ? 8 : 14, T = 14, B = 28, DOT = c ? 5 : 6;
     var lo = Math.min(5, Math.floor(Math.min.apply(null, pts.map(function (x) { return x.p.rating; })))), hi = 10;
     var X = function (i) { return pts.length === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (pts.length - 1); };
     var Y = function (v) { return T + (hi - v) * (H - T - B) / (hi - lo); };
     var avg = pts.reduce(function (s, x) { return s + x.p.rating; }, 0) / pts.length;
     var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Rating by game, average ' + avg.toFixed(2) + '">';
-    for (var g = lo; g <= hi; g++) s += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(g) + '" y2="' + Y(g) + '"/><text class="axis" x="' + (L - 8) + '" y="' + (Y(g) + 4) + '" text-anchor="end">' + g + '</text>';
+    for (var g = lo; g <= hi; g++) s += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(g) + '" y2="' + Y(g) + '"/><text class="axis" x="' + (L - 6) + '" y="' + (Y(g) + 4) + '" text-anchor="end">' + g + '</text>';
     s += '<line class="avg" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(avg) + '" y2="' + Y(avg) + '"/>';
     if (pts.length > 1) s += '<polyline class="ln" points="' + pts.map(function (x, i) { return X(i).toFixed(1) + ',' + Y(x.p.rating).toFixed(1); }).join(' ') + '"/>';
     pts.forEach(function (x, i) {
       var title = x.p.rating.toFixed(1) + ' v ' + x.m.them.name;
       var sub = x.m.us.goals + '–' + x.m.them.goals + ' · ' + fmtDayShort(x.m.day);
-      s += '<a href="' + matchHref(x.m) + '"><circle class="tip-node" data-tip-title="' + esc(title) + '" data-tip-sub="' + esc(sub) + '" fill="' + rtColor(x.p.rating, x.p.motm) + '" cx="' + X(i).toFixed(1) + '" cy="' + Y(x.p.rating).toFixed(1) + '" r="6"></circle></a>';
+      s += '<a href="' + matchHref(x.m) + '"><circle class="tip-node" data-tip-title="' + esc(title) + '" data-tip-sub="' + esc(sub) + '" fill="' + rtColor(x.p.rating, x.p.motm) + '" cx="' + X(i).toFixed(1) + '" cy="' + Y(x.p.rating).toFixed(1) + '" r="' + DOT + '"></circle></a>';
     });
     s += '<text class="axis" x="' + L + '" y="' + (H - 8) + '">' + esc(fmtDayShort(pts[0].m.day)) + '</text>';
     if (pts.length > 1) s += '<text class="axis" x="' + (W - R) + '" y="' + (H - 8) + '" text-anchor="end">' + esc(fmtDayShort(pts[pts.length - 1].m.day)) + '</text>';
@@ -1251,31 +1255,23 @@
     var beaten = vals.filter(function (x) { return Math.abs(x - v) >= 1e-9 && (inv ? x > v : x < v); }).length;
     return beaten / vals.length * 100;
   }
-  /* cmpPool: who the radar ranks against — game-by-game position snapshots for our players,
-     plus full-season aggregates for opponents. Only entries with 90+ minutes in that position. */
+  /* cmpPool: who the radar ranks against in one position group, 90+ minutes each.
+     Ours are counted game by game: only the games a player spent at that position go in, so someone
+     who swaps between midfield and attack is in both groups with different numbers.
+     Opponents go in whole, under the position they played most minutes at. */
   var CMP_POOL_MIN_SECONDS = MATCH_SECONDS;
   function cmpPool(pos) {
-    /* Our players: one snapshot per distinct position they have played at */
-    var ourSnaps = [];
-    cmpAvail().forEach(function (a) {
-      var positions = {};
-      a.log.forEach(function (x) { if (x.p.pos && x.p.pos !== 'N/A') positions[x.p.pos] = true; });
-      Object.keys(positions).forEach(function (p) {
-        if (p !== pos) return;
-        var snap = posSnapshot(a, p);
-        if (snap.seconds >= CMP_POOL_MIN_SECONDS) ourSnaps.push(snap);
-      });
-    });
-    var oppSnaps = idx.opps.filter(function (a) { return a.seconds >= CMP_POOL_MIN_SECONDS && mainPos(a) === pos; });
-    return ourSnaps.concat(oppSnaps);
+    var ours = cmpAvail().map(function (a) { return posSnapshot(a, pos); });
+    return ours.concat(idx.opps.filter(function (a) { return mainPos(a) === pos; }))
+      .filter(function (a) { return a.seconds >= CMP_POOL_MIN_SECONDS; });
   }
   /* cmpAvail: players with at least one tracked game, eligible to be selected for compare */
   function cmpAvail() { return idx.players.filter(function (a) { return a.apps > 0; }); }
-  /* cmpSnapForSel: get the pool snapshot for a selected player in the current group */
+  /* cmpSnapForSel: a picked player's numbers for one position group — their games at that position,
+     or all their games if they have never played there */
   function cmpSnapForSel(a, pos) {
-    if (!a.log) return a; /* opponent — use as-is */
     var snap = posSnapshot(a, pos);
-    return snap.apps > 0 ? snap : a; /* fall back to full agg if no games at this pos */
+    return snap.apps > 0 ? snap : a;
   }
 
   /* cmpSelected: the picked players, in pick order (ids that no longer exist are dropped) */
@@ -1289,10 +1285,9 @@
    *   axes: array of { k, mt, vals } — one spoke per stat
    *   rows: array of { a, i, cells } — one polygon per player
    * Uses percentile positioning so every player can be compared regardless of scale. */
-  var compactMq = window.matchMedia ? window.matchMedia('(max-width: 600px)') : null;
   function radarSvg(axes, rows) {
-    var compact = !!(compactMq && compactMq.matches);
-    var W = compact ? 520 : 640, H = compact ? 470 : 520, cx = W / 2, cy = compact ? 236 : 262, R = compact ? 135 : 178, FS = compact ? 18 : 13, n = axes.length;
+    var compact = isCompact();
+    var W = compact ? 520 : 640, H = compact ? 420 : 520, cx = W / 2, cy = compact ? 212 : 262, R = compact ? 135 : 178, FS = compact ? 18 : 13, n = axes.length;
     function pt(i, r) { var t = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + r * Math.cos(t), cy + r * Math.sin(t)]; }
     function xy(p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }
     function lines(label) {
@@ -1372,37 +1367,34 @@
 
     if (!sel.length) { return h + '<div class="card"><div class="card-b muted">Pick a player above to compare.</div></div>'; }
 
-    var grp = cmpGroupOf(sel), pool = cmpPool(grp.k);
-    /* ours = pool entries that are snapshots of our players (they carry _src) */
+    var grp = cmpGroupOf(sel), pool = cmpPool(grp.k), posName = grp.label.toLowerCase().replace(/s$/, '');
     var ours = pool.filter(function (a) { return !!a._src; }).length;
     var radarAxes = grp.axes.map(function (k) {
       var mt = CMP[k];
       return { k: k, mt: mt, vals: pool.map(mt.f).filter(function (v) { return v !== null; }) };
     });
-    /* For each selected player use the position snapshot so stats reflect only
-       the games they actually played at this position in this group */
+    /* each picked player's numbers come from their games at this position (all games if they have none there) */
+    var snaps = sel.map(function (a) { return cmpSnapForSel(a, grp.k); });
     var rows = sel.map(function (a, i) {
-      var snap = cmpSnapForSel(a, grp.k);
-      return { a: a, i: i, cells: radarAxes.map(function (ax) { var v = ax.mt.f(snap); return { v: v, p: percentile(v, ax.vals, ax.mt.inv) }; }) };
+      return { a: a, i: i, cells: radarAxes.map(function (ax) { var v = ax.mt.f(snaps[i]); return { v: v, p: percentile(v, ax.vals, ax.mt.inv) }; }) };
     });
-
-    var thin = sel.filter(function (a) { return cmpSnapForSel(a, grp.k).seconds < CMP_POOL_MIN_SECONDS; });
-    /* players whose stats are from a position slice (not all their games) */
-    var sliced = sel.filter(function (a) { return a.log && mainPos(a) !== grp.k; });
+    function names(list) { return esc(list.map(function (a) { return a.name; }).join(', ')); }
+    var sliced = sel.filter(function (a, i) { return snaps[i] !== a && snaps[i].apps < a.apps; });
+    var never = sel.filter(function (a, i) { return snaps[i] === a && mainPos(a) !== grp.k; });
+    var thin = sel.filter(function (a, i) { return snaps[i].seconds < CMP_POOL_MIN_SECONDS; });
     h += '<section class="card"><div class="card-b"><div class="radar-grp"><span class="muted small">Rank against</span><div class="seg" role="group" aria-label="Position group to rank against">' +
       CMP_GROUPS.map(function (g) { return '<button data-act="cmp-group" data-g="' + g.k + '" aria-pressed="' + (g === grp) + '">' + g.label + '</button>'; }).join('') + '</div></div>' +
       radarSvg(radarAxes, rows) +
       '<p class="muted small radar-note">Ranked against ' + pool.length + ' ' + grp.plural + ' with 90+ minutes in our games: ' + ours + ' of ours and ' + (pool.length - ours) + ' opponents.' +
-      (sliced.length ? ' ' + esc(sliced.map(function (a) { return a.name; }).join(', ')) + (sliced.length === 1 ? '\'s' : '\'') + ' stats are from their ' + grp.label.toLowerCase().replace(/s$/, '') + ' games only.' : '') +
-      (thin.length ? ' ' + esc(thin.map(function (a) { return a.name; }).join(', ')) + (thin.length === 1 ? ' has' : ' have') + ' under 90 minutes at this position, so treat ' + (thin.length === 1 ? 'that shape' : 'those shapes') + ' loosely.' : '') + '</p></div></section>';
+      (sliced.length ? ' Only games as a ' + posName + ' count for ' + names(sliced) + '.' : '') +
+      (never.length ? ' ' + names(never) + (never.length === 1 ? ' has' : ' have') + ' not played as a ' + posName + ', so all their games count.' : '') +
+      (thin.length ? ' ' + names(thin) + (thin.length === 1 ? ' has' : ' have') + ' under 90 minutes there, so treat ' + (thin.length === 1 ? 'that shape' : 'those shapes') + ' loosely.' : '') + '</p></div></section>';
 
     /* Stat comparison list */
     h += '<section class="card"><div class="cmp-list" style="--cmp-n:' + sel.length + '">';
-    /* header row with player names + game count at this position */
+    /* header row: player names, with how many of their games the numbers come from when it is not all of them */
     h += '<div class="cmp-hdr"><span></span>' + sel.map(function (a, i) {
-      var snap = cmpSnapForSel(a, grp.k);
-      var sub = snap.apps !== a.apps ? '<small class="muted"> (' + snap.apps + (snap.apps === 1 ? ' game' : ' games') + ' at ' + grp.label.toLowerCase().replace(/s$/,'') + ')</small>' : '';
-      return '<span class="s' + i + 'c">' + esc(a.name) + sub + '</span>';
+      return '<span class="s' + i + 'c">' + esc(a.name) + (snaps[i] !== a && snaps[i].apps < a.apps ? '<small>' + snaps[i].apps + ' of ' + a.apps + ' games</small>' : '') + '</span>';
     }).join('') + '</div>';
 
     CMP_ALL_STATS.forEach(function (item) {
@@ -1412,7 +1404,7 @@
       }
       var k = item, mt = CMP[k];
       if (!mt) return;
-      var vals = sel.map(function (a) { return mt.f(cmpSnapForSel(a, grp.k)); });
+      var vals = snaps.map(function (sn) { return mt.f(sn); });
       /* find winner: highest value (or lowest if inv) among non-null vals */
       var winnerIdx = null;
       if (sel.length >= 2) {
@@ -1578,19 +1570,19 @@
   var ARC_SPAN = 5;
   function seasonArc(ms) {
     if (ms.length < 3) return '';
-    var W = 720, H = 200, L = 34, R = 14, T = 14, B = 28;
+    var c = isCompact(), W = c ? 360 : 720, H = c ? 180 : 200, L = c ? 20 : 34, R = c ? 8 : 14, T = 14, B = 28, DOT = c ? 5 : 6;
     var pts = ms.map(function (m, i) { return { m: m, v: pointsPerGame(tally(ms.slice(Math.max(0, i - ARC_SPAN + 1), i + 1))) }; });
     var X = function (i) { return L + i * (W - L - R) / (ms.length - 1); }, Y = function (v) { return T + (3 - v) * (H - T - B) / 3; };
     var season = pointsPerGame(tally(ms));
     var s = '<svg class="chart arc" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Points per game over the latest ' + ARC_SPAN + ' games, game by game. Season average ' + f2(season) + '">';
-    for (var g = 0; g <= 3; g++) s += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(g) + '" y2="' + Y(g) + '"/><text class="axis" x="' + (L - 8) + '" y="' + (Y(g) + 4) + '" text-anchor="end">' + g + '</text>';
+    for (var g = 0; g <= 3; g++) s += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(g) + '" y2="' + Y(g) + '"/><text class="axis" x="' + (L - 6) + '" y="' + (Y(g) + 4) + '" text-anchor="end">' + g + '</text>';
     s += '<line class="avg" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(season) + '" y2="' + Y(season) + '"/>';
     s += '<polyline class="ln" points="' + pts.map(function (p, i) { return X(i).toFixed(1) + ',' + Y(p.v).toFixed(1); }).join(' ') + '"/>';
     var col = { W: 'var(--win)', D: 'var(--draw)', L: 'var(--loss)' };
     pts.forEach(function (p, i) {
       var title = p.m.result + ' ' + p.m.us.goals + '–' + p.m.them.goals + ' v ' + p.m.them.name;
       var sub = fmtDayShort(p.m.day) + ' · last ' + Math.min(ARC_SPAN, i + 1) + ': ' + f2(p.v) + ' pts/game';
-      s += '<a href="' + matchHref(p.m) + '"><circle class="tip-node" data-tip-title="' + esc(title) + '" data-tip-sub="' + esc(sub) + '" style="fill:' + col[p.m.result] + '" cx="' + X(i).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="6"></circle></a>';
+      s += '<a href="' + matchHref(p.m) + '"><circle class="tip-node" data-tip-title="' + esc(title) + '" data-tip-sub="' + esc(sub) + '" style="fill:' + col[p.m.result] + '" cx="' + X(i).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="' + DOT + '"></circle></a>';
     });
     s += '<text class="axis" x="' + L + '" y="' + (H - 8) + '">' + esc(fmtDayShort(ms[0].day)) + '</text>';
     s += '<text class="axis" x="' + (W - R) + '" y="' + (H - 8) + '" text-anchor="end">' + esc(fmtDayShort(ms[ms.length - 1].day)) + '</text>';
@@ -1789,19 +1781,36 @@
     saved.forEach(function (p, i) { if (els[i]) { els[i].scrollLeft = p[0]; els[i].scrollTop = p[1]; } });
   }
 
-  var lastRoute = null;
+  /* A wide table that still has columns off the right edge gets a fade there, so it is clear it scrolls sideways */
+  function markScrollable(el) { el.classList.toggle('more', el.scrollLeft + el.clientWidth < el.scrollWidth - 2); }
+  function markAllScrollable() { Array.prototype.forEach.call(view.querySelectorAll('.tw, .pickrow'), markScrollable); }
+
+  /* Going back to a page puts you where you were on it; opening a page starts at the top.
+     trail is the list of pages opened in order, pageScroll how far down each one was left. */
+  var lastRoute = null, trail = [], pageScroll = dict(), navTap = false, scrollTarget = null;
+  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) { /* the browser keeps its own behaviour */ }
   function render() {
     hideTip();
     var hash = (location.hash || '').replace(/^#/, '');
     var saved = hash === lastRoute ? tableScroll() : null;
+    scrollTarget = null;
     route(hash);
     restoreTableScroll(saved);
+    if (scrollTarget !== null) window.scrollTo(0, scrollTarget);
+    markAllScrollable();
   }
   function route(hash) {
     var m;
     var routeChanged = hash !== lastRoute;
     if (routeChanged) {
-      if (lastRoute !== null) window.scrollTo(0, 0);
+      if (lastRoute === null) trail.push(hash);
+      else {
+        pageScroll[lastRoute] = window.scrollY || window.pageYOffset || 0;
+        var back = !navTap && trail.length > 1 && trail[trail.length - 2] === hash;
+        if (back) trail.pop(); else trail.push(hash);
+        scrollTarget = back ? pageScroll[hash] || 0 : 0;
+      }
+      navTap = false;
       if (hash.indexOf('match-') === 0 && (lastRoute || '').indexOf('match-') !== 0) ui.tab = 'facts';
       if (hash.indexOf('day-') === 0) ui.calMonth = null;
       /* #compare keeps the current picks; #compare-<player> (from a player page) starts with that player picked */
@@ -1859,11 +1868,11 @@
     if (f === 'squad') {
       ui.squadQuery = el.value;
       var sc = document.getElementById('squad-card'), keep = tableScroll();
-      if (sc) { sc.innerHTML = squadTableHtml(); restoreTableScroll(keep); }
+      if (sc) { sc.innerHTML = squadTableHtml(); restoreTableScroll(keep); markAllScrollable(); }
     } else if (f === 'opp') {
       ui.oppQuery = el.value;
       var ow = document.getElementById('opp-wrap');
-      if (ow) ow.innerHTML = opponentsTableHtml(idx.matches);
+      if (ow) { ow.innerHTML = opponentsTableHtml(idx.matches); markAllScrollable(); }
     }
   });
 
@@ -1891,6 +1900,13 @@
     var tipNode = e.target.closest ? e.target.closest('.tip-node') : null;
     if (tipNode && tipNode.tagName === 'text') {
       showTip(tipNode, e.clientX, e.clientY);
+      return;
+    }
+    /* a tap on a section link always opens that section at the top; a tap on the one already open scrolls up */
+    var navLink = e.target.closest ? e.target.closest('[data-nav]') : null;
+    if (navLink) {
+      navTap = true;
+      if (navLink.getAttribute('href') === location.hash) window.scrollTo(0, 0);
       return;
     }
     var el = e.target.closest ? e.target.closest('[data-act]') : null;
@@ -1947,6 +1963,9 @@
   function applyTheme(dark) {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     if (themeBtn) themeBtn.setAttribute('aria-checked', dark ? 'true' : 'false');
+    /* the phone browser's own bars take the header colour */
+    var tc = document.getElementById('themeColor');
+    if (tc) tc.setAttribute('content', dark ? '#191e1c' : '#ffffff');
   }
   /* Storage can be blocked (private windows, strict browser settings); the page must still load */
   function readTheme() { try { return localStorage.getItem('eatmob-theme'); } catch (e) { return null; } }
@@ -1961,7 +1980,13 @@
   });
 
   window.addEventListener('hashchange', render);
-  if (compactMq && compactMq.addEventListener) compactMq.addEventListener('change', function () { if (/^compare/.test((location.hash || '').replace(/^#/, ''))) render(); });
+  window.addEventListener('resize', markAllScrollable);
+  /* 'scroll' does not bubble, so listen in the capture phase */
+  document.addEventListener('scroll', function (e) {
+    var t = e.target;
+    if (t && t.classList && (t.classList.contains('tw') || t.classList.contains('pickrow'))) markScrollable(t);
+  }, true);
+  if (compactMq && compactMq.addEventListener) compactMq.addEventListener('change', render);
   /* Image load failures ('error' does not bubble, so listen in the capture phase):
      a missing crest falls back to the club's initials, a missing avatar to the built-in silhouette. */
   document.addEventListener('error', function (e) {

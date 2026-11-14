@@ -8,7 +8,7 @@ A static site: `index.html`, `styles.css`, `app.js`, and the data in `data/db.js
 
 ## What it shows
 
-- **Matches** – a date strip and calendar; pick a day to see every game played that night, with scores, results, the team rating, and the night's best-rated players and scorers.
+- **Matches** – a date strip and calendar; pick a day to see every game played that night, with scores, results, the team rating, and the night's best-rated players and scorers. The arrows either side of the strip jump to the previous or next day with games.
 - **Match page** – score, scorers, player of the match, lineup on a pitch with EA ratings and an icon for every goal and assist, team stat comparison, and sortable player stat tables for both clubs. Subs get an arrow: green → with the minute they came on, red ← with the minute they went off, or grey ↔ with minutes played when the direction can't be told (worked out from whether the player was in the game before it that night). Opponents we've played more than once get a Head-to-Head tab listing every meeting. Each match has a share link.
 - **Insights** – player-only analysis from the saved games:
   - trophy cabinet (Golden Boot, Playmaker, Sharpshooter, Clutch, Mr Reliable and more)
