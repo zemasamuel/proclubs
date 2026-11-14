@@ -4,7 +4,7 @@
 
   var TIME_ZONE = 'America/Chicago';
   var CREST_BASE = 'https://eatmob-crests.zemasamuel.workers.dev/';
-  var PLAYER_AVATAR_URL = 'https://www.fotmob.com/img/player-fallback-dark.png';
+  var PLAYER_AVATAR_URL = 'assets/player-fallback-dark.png';
   var PLAYER_AVATAR_FALLBACK = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23232927'/%3E%3Ccircle cx='32' cy='23' r='12' fill='%235c6662'/%3E%3Cpath d='M10 64c2-14 12-22 22-22s20 8 22 22' fill='%235c6662'/%3E%3C/svg%3E";
   var DAY_STARTS_AT_HOUR = 5;      // games ending before 5 AM count for the previous day
   var MATCH_SECONDS = 5400;        // game-clock seconds in 90 minutes
@@ -487,8 +487,8 @@
     var q = ui.squadQuery.trim().toLowerCase();
     var posFilter = ui.squadPos;
     var cols = tracked
-      ? [['apps', 'Apps'], ['mins', 'Min'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['ga90', 'G+A /90'], ['pass', 'Pass %'], ['motm', 'MOTM'], ['rating', 'Rating']]
-      : [['apps', 'Games'], ['win', 'Win %'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['pass', 'Pass %'], ['motm', 'MOTM'], ['ovr', 'OVR'], ['rating', 'Rating']];
+      ? [['rating', 'Rating'], ['apps', 'Apps'], ['mins', 'Min'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['ga90', 'G+A /90'], ['pass', 'Pass %'], ['motm', 'MOTM']]
+      : [['rating', 'Rating'], ['ovr', 'OVR'], ['apps', 'Games'], ['win', 'Win %'], ['goals', 'G'], ['assists', 'A'], ['ga', 'G+A'], ['pass', 'Pass %'], ['motm', 'MOTM']];
     if (!cols.some(function (c) { return c[0] === ui.sortK; })) { ui.sortK = 'rating'; ui.sortDir = -1; }
     var rows = idx.players.map(function (a) {
       var mem = db.members[a.name] || null, v, pos = mainPos(a);
@@ -505,11 +505,16 @@
         (r.pos && r.pos.toLowerCase().indexOf(q) >= 0) ||
         posName.indexOf(q) >= 0;
     });
+    var POS_ORDER = { GK: 0, DEF: 1, MID: 2, FWD: 3 };
     rows.sort(function (x, y) {
       var a = x.v[ui.sortK], b = y.v[ui.sortK];
       var na = a === null || a === undefined, nb = b === null || b === undefined;
       if (na || nb) return na && nb ? x.a.name.localeCompare(y.a.name) : na ? 1 : -1;
-      return (a - b) * ui.sortDir || x.a.name.localeCompare(y.a.name);
+      var diff = (a - b) * ui.sortDir;
+      if (diff !== 0) return diff;
+      // tiebreak: position group order, then name
+      var po = (POS_ORDER[x.pos] !== undefined ? POS_ORDER[x.pos] : 4) - (POS_ORDER[y.pos] !== undefined ? POS_ORDER[y.pos] : 4);
+      return po || x.a.name.localeCompare(y.a.name);
     });
     var fm = { ga90: f2, pass: function (v) { return v === null ? '–' : Math.round(v) + '%'; }, win: function (v) { return v === null ? '–' : v + '%'; }, rating: function (v) { return rt(v || 0); } };
     if (!rows.length) return '<div class="card-b muted">No matching players.</div>';
