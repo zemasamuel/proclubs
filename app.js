@@ -1386,15 +1386,11 @@
       return { a: a, i: i, cells: radarAxes.map(function (ax) { var v = ax.mt.f(snap); return { v: v, p: percentile(v, ax.vals, ax.mt.inv) }; }) };
     });
 
-    var thin = sel.filter(function (a) { return cmpSnapForSel(a, grp.k).seconds < CMP_POOL_MIN_SECONDS; });
-    /* players whose stats are from a position slice (not all their games) */
-    var sliced = sel.filter(function (a) { return a.log && mainPos(a) !== grp.k; });
     h += '<section class="card"><div class="card-b"><div class="radar-grp"><span class="muted small">Rank against</span><div class="seg" role="group" aria-label="Position group to rank against">' +
       CMP_GROUPS.map(function (g) { return '<button data-act="cmp-group" data-g="' + g.k + '" aria-pressed="' + (g === grp) + '">' + g.label + '</button>'; }).join('') + '</div></div>' +
       radarSvg(radarAxes, rows) +
       '<p class="muted small radar-note">Ranked against ' + pool.length + ' ' + grp.plural + ' with 90+ minutes in our games: ' + ours + ' of ours and ' + (pool.length - ours) + ' opponents.' +
-      (sliced.length ? ' ' + esc(sliced.map(function (a) { return a.name; }).join(', ')) + (sliced.length === 1 ? '\'s' : '\'') + ' stats are from their ' + grp.label.toLowerCase().replace(/s$/, '') + ' games only.' : '') +
-      (thin.length ? ' ' + esc(thin.map(function (a) { return a.name; }).join(', ')) + (thin.length === 1 ? ' has' : ' have') + ' under 90 minutes at this position, so treat ' + (thin.length === 1 ? 'that shape' : 'those shapes') + ' loosely.' : '') + '</p></div></section>';
+      '</p></div></section>';
 
     /* Stat comparison list */
     h += '<section class="card"><div class="cmp-list" style="--cmp-n:' + sel.length + '">';
