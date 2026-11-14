@@ -470,6 +470,9 @@ th button.on { color: var(--accent); }
 .delta.good { color: var(--win); }
 .delta.bad { color: var(--loss); }
 
+/* opponents scrollable list */
+.opp-scroll { max-height: 420px; overflow-y: auto; overscroll-behavior: contain; }
+
 /* club stats */
 .tiles.t3 { grid-template-columns: repeat(3, 1fr); }
 .vs td.better { font-weight: 700; color: var(--accent); }

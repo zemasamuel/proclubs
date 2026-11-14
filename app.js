@@ -26,7 +26,7 @@
     calOpen: false,
     calMonth: null,       // null = show today's month
     tab: 'facts',         // active tab on match detail view
-    squadMode: 'tracked', // 'tracked' (this season) | 'ea' (career) | 'per90' | 'insights'
+    squadMode: 'tracked', // 'tracked' (this season) | 'ea' (career) | 'per90' | 'compare'
     squadQuery: '',       // text filter on squad table
     squadPos: 'ALL',      // position filter on squad table
     oppQuery: '',         // text filter on opponents table
@@ -610,7 +610,7 @@
       board('Tackles won per 90', leaders(function (a) { return per90(a.tacklesMade, a.seconds); }, f1)) + '</div>';
   }
 
-  var SQUAD_MODES = [['tracked', 'This season'], ['ea', 'Career'], ['per90', 'Per 90'], ['insights', 'Insights']];
+  var SQUAD_MODES = [['tracked', 'This season'], ['ea', 'Career'], ['per90', 'Per 90'], ['compare', 'Compare']];
   function viewSquad() {
     var mode = ui.squadMode;
     var h = '<div class="dayhead"><h1>Squad</h1><div class="seg" role="group" aria-label="Squad view">' +
@@ -618,7 +618,7 @@
         return '<button data-act="squad-mode" data-mode="' + m[0] + '" aria-pressed="' + (mode === m[0]) + '">' + m[1] + '</button>';
       }).join('') + '</div></div>';
 
-    if (mode === 'insights') { view.innerHTML = h + squadInsightsHtml(); return; }
+    if (mode === 'compare') { view.innerHTML = h + compareHtml(); return; }
 
     if (mode === 'per90') {
       h += squadPer90();
@@ -868,6 +868,13 @@
     return '<section class="card"><div class="card-h"><h2>Insights</h2><span class="muted small">from ' + games(a.apps) + '</span></div><ul class="ins">' + rows.join('') + '</ul></section>';
   }
 
+  /* ---------- insights (top-level tab) ---------- */
+  function viewInsights() {
+    var h = '<div class="dayhead"><h1>Insights</h1></div>';
+    h += squadInsightsHtml();
+    view.innerHTML = h;
+  }
+
   /* ---------- player ---------- */
   function ratingChart(log) {
     var pts = log.filter(function (x) { return x.p.rating > 0; });
@@ -1088,10 +1095,11 @@
     't90', 'tpct', 'pressing_rate', 'cga90', 'cs', 'sv90'
   ];
 
-  function viewCompare() {
+  /* compareHtml: the compare body, shared by viewCompare and the Squad > Compare toggle */
+  function compareHtml() {
     var avail = cmpAvail(), sel = cmpSelected();
-    var h = '<div class="dayhead"><h1>Compare</h1></div>';
-    if (!avail.length) { view.innerHTML = h + emptyState(); return; }
+    var h = '';
+    if (!avail.length) { return emptyState(); }
 
     h += '<section class="card"><div class="card-b"><div class="pickrow" role="group" aria-label="Players to compare">' +
       avail.slice().sort(function (x, y) { return y.seconds - x.seconds || x.name.localeCompare(y.name); }).map(function (a) {
@@ -1100,7 +1108,7 @@
           '<i class="sw"></i>' + esc(a.name) + '</button>';
       }).join('') + '</div></div></section>';
 
-    if (!sel.length) { view.innerHTML = h + '<div class="card"><div class="card-b muted">Pick a player above to compare.</div></div>'; return; }
+    if (!sel.length) { return h + '<div class="card"><div class="card-b muted">Pick a player above to compare.</div></div>'; }
 
     var radarAxes = CMP_RADAR_AXES.map(function (k) {
       var mt = CMP[k];
@@ -1147,7 +1155,11 @@
     });
 
     h += '</div></section>';
-    view.innerHTML = h;
+    return h;
+  }
+  function viewCompare() {
+    var h = '<div class="dayhead"><h1>Compare</h1></div>';
+    view.innerHTML = h + compareHtml();
   }
 
   /* ---------- club stats & leaderboards ---------- */
@@ -1316,7 +1328,7 @@
     }).sort(function (a, b) { return b.ms.length - a.ms.length || b.last - a.last; });
     if (!ol.length) return '<div class="card-b muted">No matching opponents.</div>';
     return '<div class="tw"><table><thead><tr><th>Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>Last met</th></tr></thead><tbody>' +
-      ol.slice(0, 30).map(function (e) {
+      ol.map(function (e) {
         var x = tally(e.ms), lastM = e.ms[e.ms.length - 1];
         return '<tr><td class="name"><a class="who" href="' + matchHref(lastM) + '">' + crest(e.side, 24) + '<span>' + esc(e.name) + '</span></a></td><td>' + x.P + '</td><td>' + x.W + '</td><td>' + x.D + '</td><td>' + x.L + '</td><td>' + x.GF + '</td><td>' + x.GA + '</td><td>' + esc(fmtDayShort(lastM.day)) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
@@ -1364,7 +1376,7 @@
 
       h += '<section class="card"><div class="card-h"><h2>Opponents</h2>' +
         '<input class="search-in" type="search" data-filter="opp" placeholder="Filter clubs…" value="' + esc(ui.oppQuery) + '" aria-label="Filter opponents"></div>' +
-        '<div id="opp-wrap">' + opponentsTableHtml(ms) + '</div></section>';
+        '<div id="opp-wrap" class="opp-scroll">' + opponentsTableHtml(ms) + '</div></section>';
     }
     view.innerHTML = h;
   }
@@ -1393,8 +1405,9 @@
       lastRoute = hash;
     }
     view.classList.toggle('anim', routeChanged);
-    if (/^compare(-[A-Za-z0-9]+)?$/.test(hash)) { setNav('compare'); return viewCompare(); }
+    if (/^compare(-[A-Za-z0-9]+)?$/.test(hash)) { setNav('squad'); ui.squadMode = 'compare'; return viewSquad(); }
     if (hash === 'squad') { setNav('squad'); return viewSquad(); }
+    if (hash === 'insights') { setNav('insights'); return viewInsights(); }
     if (hash === 'stats') { setNav('stats'); return viewStats(); }
     if ((m = /^match-([A-Za-z0-9]+)$/.exec(hash)) && idx.byId[m[1]]) { setNav('matches'); return viewMatch(idx.byId[m[1]]); }
     if ((m = /^player-([A-Za-z0-9]+)$/.exec(hash)) && idx.bySlug[m[1]]) { setNav('squad'); return viewPlayer(idx.bySlug[m[1]]); }
