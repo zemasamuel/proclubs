@@ -106,14 +106,14 @@
   var ICON_BOOT = '<svg class="i-boot" viewBox="0 0 480.043 480.043" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M432.7,341.222c-4-0.1-8-0.1-12.4-0.1c-6.5,0-12.199,0.1-17.8,0.4l5.7,31.299c0.2,1.301,1.4,2.201,2.7,2.201h27.7c1.3,0,2.399-0.9,2.699-2.201l6.5-31.6c-1.699,0-3.3,0-5,0C439.601,341.321,436.3,341.321,432.7,341.222z" fill="currentColor"/><path d="M334.3,373.321c0.2,1.301,1.4,2.201,2.7,2.201h27.7c1.3,0,2.4-0.9,2.7-2.201l6.2-30.6c-12.301,0.5-27.601,1-44.5,1.5L334.3,373.321z" fill="currentColor"/><path d="M119.4,377.622c0.2,1.3,1.4,2.199,2.7,2.199h27.7c1.3,0,2.4-0.899,2.7-2.199l5.8-28.5c-17.5,0.4-32.6,0.699-43.9,0.9L119.4,377.622z" fill="currentColor"/><path d="M49.8,343.722l6.2,33.9c0.2,1.3,1.4,2.199,2.7,2.199h27.7c1.3,0,2.4-0.899,2.7-2.199l5.7-27.7c-14.8-0.7-30.2-3.601-44.4-8.3C49.9,342.321,49.7,343.022,49.8,343.722z" fill="currentColor"/><path d="M437.7,145.422c-10.7,0-9.7,32.4-32.5,40.7c-11,4-21.6,5.6-30.9,5.6c-16.6,0-29.3-4.9-34-9.5c-7.399-7.2,59.801-29.9,45.4-49.4l-22-29.5c-1.5-2-3.8-3.1-6.1-3.1c-1.5,0-3,0.5-4.4,1.5l-73.8,54.2c0,0-28.2,0-33.1,16.5c0,0-0.801-0.1-2.201-0.1c-6.1,0-22.699,1.3-27.199,15.2c0,0-69.9,13.8-111.6,36.2c-41.6,22.301-105.3,21-105.3,56.5s56.4,59.2,101.1,59.2c44.7,0,269-6.8,300.4-8.601c6.7-0.399,13-0.5,18.9-0.5c8.399,0,15.899,0.201,22.5,0.201c23.8,0,36.1-3,36.5-30.301c0.6-40.199,5.5-102.4-25.101-141.3C446.4,149.222,441.3,145.422,437.7,145.422z M292.2,302.222h-37c-0.7,0-1.3-0.3-1.8-0.699l-80.3-73.5c-1.6-1.5-0.9-4.1,1.1-4.6l28-7.5c0.9-0.2,1.9,0,2.5,0.6l89.399,81C295.9,299.122,294.7,302.222,292.2,302.222z M366.9,302.122l-39-0.5c-0.7,0-1.3-0.301-1.8-0.7l-99.601-90.3c-1.6-1.5-1-4.1,1.1-4.7l27.9-7.5c0.9-0.2,1.801,0,2.5,0.6l110.8,98.299C370.601,299.022,369.4,302.122,366.9,302.122z" fill="currentColor"/></svg>';
 
   var ICON_RC = svg('i-card', '<rect x="6.5" y="4" width="11" height="16" rx="2" fill="#e0352f"/>');
-  /* Sub arrows: green up = came on, red down = went off, grey = direction unknown */
+  /* Sub arrows: green right = came on, red left = went off, grey both ways = direction unknown */
   function subIcon(color, d) {
     return svg('i-sub', '<circle cx="12" cy="12" r="10" fill="' + color + '"/>' +
       '<path d="' + d + '" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>');
   }
-  var ICON_SUB_ON = subIcon('#1ea55b', 'M12 17V7.5M8.5 11 12 7.5 15.5 11');
-  var ICON_SUB_OFF = subIcon('#e0352f', 'M12 7v9.5M8.5 13 12 16.5 15.5 13');
-  var ICON_SUB = subIcon('#7d8a85', 'M7.5 12h9M13 8.5L16.5 12 13 15.5');
+  var ICON_SUB_ON = subIcon('#1ea55b', 'M7 12h9.5M13 8.5 16.5 12 13 15.5');
+  var ICON_SUB_OFF = subIcon('#e0352f', 'M17 12H7.5M11 8.5 7.5 12 11 15.5');
+  var ICON_SUB = subIcon('#7d8a85', 'M6.5 12h11M9.5 9 6.5 12 9.5 15M14.5 9l3 3-3 3');
 
   function initials(name) { var s = String(name).replace(/[^A-Za-z0-9]/g, ''); return esc((s.slice(0, 2) || '?').toUpperCase()); }
   function resChip(r) { return '<span class="res ' + r + '" title="' + ({ W: 'Win', D: 'Draw', L: 'Loss' }[r]) + '">' + r + '</span>'; }
@@ -258,8 +258,8 @@
   /* EA only says how long a player was on the pitch, not when they came on or went off.
      The game before it on the same night settles it: a player who was in that game was
      already in the lobby at kick-off, so a short game means they went off; a player who
-     was not in it joined part-way, so they came on. In the first game of a night there
-     is nothing to compare against, so the arrow is grey and shows minutes played. */
+     was not in it joined part-way, so they came on. With no earlier game that night
+     the direction stays unknown. */
   function subOf(p, m) {
     if (!isSub(p, m)) return null;
     var played = mins(p.secondsPlayed), dir = null;
@@ -455,7 +455,6 @@
 
   /* Lineup marker: FotMob avatar + badges, fixed 4-zone positional grid so GK stays inside the penalty box. */
   function evIcons(icon, n, cls) {
-    if (n > 4) return '<i class="e ' + cls + '">' + icon + '<b>' + n + '</b></i>';
     var out = '';
     while (n-- > 0) out += '<i class="e ' + cls + '">' + icon + '</i>';
     return out;
