@@ -632,7 +632,11 @@
     if (!SQUAD_COLS.some(function (c) { return c[0] === ui.sortK; })) { ui.sortK = 'rating'; ui.sortDir = -1; }
     var rows = idx.players.map(function (a) {
       var mem = db.members[a.name] || null, v;
-      if (tracked) v = { rating: avgRating(a), goals: a.goals, assists: a.assists, ga: a.goals + a.assists, pass: pct(a.passesMade, a.passAttempts), tackles: a.tacklesMade, win: pct(a.W, a.apps), motm: a.motm, mins: mins(a.seconds), apps: a.apps };
+      if (tracked) {
+        /* When a position filter is active, only count games the player played that position */
+        var src = (posFilter !== 'ALL' && a.pos[posFilter]) ? posSnapshot(a, posFilter) : a;
+        v = { rating: avgRating(src), goals: src.goals, assists: src.assists, ga: src.goals + src.assists, pass: pct(src.passesMade, src.passAttempts), tackles: src.tacklesMade, win: pct(src.W, src.apps), motm: src.motm, mins: mins(src.seconds), apps: src.apps };
+      }
       /* EA's career totals carry no minutes, so that column stays blank in Career */
       else v = mem ? { rating: mem.ratingAve || null, goals: mem.goals, assists: mem.assists, ga: mem.goals + mem.assists, pass: mem.gamesPlayed ? mem.passSuccessRate : null, tackles: mem.tacklesMade, win: mem.gamesPlayed ? mem.winRate : null, motm: mem.motm, mins: null, apps: mem.gamesPlayed } : null;
       return { a: a, mem: mem, pos: mainPos(a), v: v };
