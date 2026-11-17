@@ -196,6 +196,8 @@
              teamGoals: 0, tries: 0, subs: 0 };
   }
   function avgRating(a) { return a.rated ? a.ratingSum / a.rated : null; }
+  /* 3.0 is an EA bug rating — exclude from all aggregates (still shown in per-game lineups) */
+  function validRating(r) { return r > 0 && r !== 3.0; }
   function mainPos(a) {
     /* For our players (who have a log), use their last 3 games to decide.
        For opponents (no log), fall back to minutes-across-all-games. */
@@ -228,7 +230,7 @@
       snap.seconds += p.secondsPlayed;
       if (p.motm) snap.motm++;
       if (p.cleanSheet) snap.cleanSheets++;
-      if (p.rating > 0) { snap.ratingSum += p.rating; snap.rated++; }
+      if (validRating(p.rating)) { snap.ratingSum += p.rating; snap.rated++; }
       snap[m.result]++;
       snap.teamGoals += m.us.goals; snap.tries += tries(p);
     });
@@ -248,7 +250,7 @@
     a.seconds += p.secondsPlayed;
     if (p.motm) a.motm++;
     if (p.cleanSheet) a.cleanSheets++;
-    if (p.rating > 0) { a.ratingSum += p.rating; a.rated++; }
+    if (validRating(p.rating)) { a.ratingSum += p.rating; a.rated++; }
     a[result]++;
     a.teamGoals += teamGoals; a.tries += tries(p);
     a.pos[p.pos] = (a.pos[p.pos] || 0) + 1;
@@ -400,7 +402,7 @@
     list.forEach(function (m) {
       m.players.us.forEach(function (p) {
         var a = per[p.id] || (per[p.id] = { id: p.id, name: p.name, n: 0, rs: 0, rn: 0, g: 0, as: 0 });
-        a.n++; a.g += p.goals; a.as += p.assists; if (p.rating > 0) { a.rs += p.rating; a.rn++; }
+        a.n++; a.g += p.goals; a.as += p.assists; if (validRating(p.rating)) { a.rs += p.rating; a.rn++; }
       });
     });
     var arr = Object.keys(per).map(function (k) { return per[k]; });
@@ -508,7 +510,7 @@
         '<div class="ovr">' + rt(motm.p.rating, true, true) + '</div></div></section>';
     }
     function top(players, us) {
-      return players.filter(function (p) { return p.rating > 0; }).sort(function (a, b) { return b.rating - a.rating; }).slice(0, 3).map(function (p, i) {
+      return players.filter(function (p) { return validRating(p.rating); }).sort(function (a, b) { return b.rating - a.rating; }).slice(0, 3).map(function (p, i) {
         var inner = '<span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(p.name) + '<small>' + POS_LABEL[p.pos] + '</small></span>' + rt(p.rating, false, p.motm);
         return us ? '<a class="pl" href="' + playerHref(p.id) + '">' + inner + '</a>' : '<div class="pl">' + inner + '</div>';
       }).join('') || '<div class="pl muted">No ratings.</div>';
@@ -726,7 +728,7 @@
   function pointsPerGame(t) { return t.P ? (t.W * 3 + t.D) / t.P : null; }
   function goalDiffPerGame(t) { return t.P ? (t.GF - t.GA) / t.P : null; }
   function isClose(m) { return Math.abs(m.us.goals - m.them.goals) <= 1; }   // a draw or a one-goal game
-  function ratingsOf(log) { return log.filter(function (x) { return x.p.rating > 0; }).map(function (x) { return x.p.rating; }); }
+  function ratingsOf(log) { return log.filter(function (x) { return validRating(x.p.rating); }).map(function (x) { return x.p.rating; }); }
   function gaPer90(log) {
     var ga = 0, sec = 0;
     log.forEach(function (x) { ga += x.p.goals + x.p.assists; sec += x.p.secondsPlayed; });
@@ -947,7 +949,7 @@
 
   /* sparkline: the last 10 ratings as a small line, latest dot coloured like its rating chip */
   function sparkline(a) {
-    var log = a.log.filter(function (x) { return x.p.rating > 0; }).slice(-10);
+    var log = a.log.filter(function (x) { return validRating(x.p.rating); }).slice(-10);
     if (log.length < 2) return '<span class="muted">–</span>';
     var rs = log.map(function (x) { return x.p.rating; });
     var W = 72, H = 24, lo = Math.min(5, Math.floor(Math.min.apply(null, rs))), hi = 10;
@@ -1068,7 +1070,7 @@
     } else if (im) {
       row('Impact', '', name + ' has missed ' + games(im.wo.P) + ', too few to compare ' + club + ' with and without.');
     }
-    var good = a.log.filter(function (x) { return x.p.rating >= GOOD_GAME; }), other = a.log.filter(function (x) { return x.p.rating > 0 && x.p.rating < GOOD_GAME; });
+    var good = a.log.filter(function (x) { return validRating(x.p.rating) && x.p.rating >= GOOD_GAME; }), other = a.log.filter(function (x) { return validRating(x.p.rating) && x.p.rating < GOOD_GAME; });
     if (good.length && other.length) {
       row('Rated ' + GOOD_GAME.toFixed(1) + '+', '', club + ' go ' + recordOf(tally(good.map(function (x) { return x.m; }))) + ' when ' + name + ' rates ' + GOOD_GAME.toFixed(1) + ' or better, ' +
         recordOf(tally(other.map(function (x) { return x.m; }))) + ' otherwise.');
@@ -1101,7 +1103,7 @@
 
   /* ---------- player ---------- */
   function ratingChart(log) {
-    var pts = log.filter(function (x) { return x.p.rating > 0; });
+    var pts = log.filter(function (x) { return validRating(x.p.rating); });
     if (!pts.length) return '<p class="muted">No ratings yet.</p>';
     var W = 720, H = 220, L = 34, R = 14, T = 14, B = 28;
     var lo = Math.min(5, Math.floor(Math.min.apply(null, pts.map(function (x) { return x.p.rating; })))), hi = 10;
@@ -1165,7 +1167,7 @@
     if (!a.apps) {
       h += '<p class="note">No games tracked yet.</p>';
     } else {
-      var log = a.log, rated = log.filter(function (x) { return x.p.rating > 0; });
+      var log = a.log, rated = log.filter(function (x) { return validRating(x.p.rating); });
       var last5 = rated.slice(-5), l5 = last5.length ? last5.reduce(function (s, x) { return s + x.p.rating; }, 0) / last5.length : null;
       var best = rated.slice().sort(function (x, y) { return y.p.rating - x.p.rating; })[0], worst = rated.slice().sort(function (x, y) { return x.p.rating - y.p.rating; })[0];
       var sd = rated.length > 1 ? Math.sqrt(rated.reduce(function (s, x) { return s + Math.pow(x.p.rating - avg, 2); }, 0) / rated.length) : null;
@@ -1194,7 +1196,7 @@
       h += kvCard(a.pos.GK ? 'Defending and goalkeeping' : 'Defending and discipline', defRows);
       h += kvCard('Results with ' + esc(a.name), [['Record', a.W + 'W ' + a.D + 'D ' + a.L + 'L'], ['Win rate', pctS(a.W, a.apps)], ['Club win rate', pctS(clubAll.W, clubAll.P)], ['Difference', (diff >= 0 ? '+' : '−') + Math.abs(Math.round(diff)) + ' pts'], ['Points per game', f2((a.W * 3 + a.D) / a.apps)], ['Sub appearances', a.subs], ['Games missed', (idx.matches.length - a.apps) + ' of ' + idx.matches.length]]);
       var posRows = Object.keys(a.pos).sort(function (x, y) { return a.pos[y] - a.pos[x]; }).map(function (p) {
-        var ls = log.filter(function (x) { return x.p.pos === p; }), rs = ls.filter(function (x) { return x.p.rating > 0; });
+        var ls = log.filter(function (x) { return x.p.pos === p; }), rs = ls.filter(function (x) { return validRating(x.p.rating); });
         var g = 0, as = 0; ls.forEach(function (x) { g += x.p.goals; as += x.p.assists; });
         return [POS_LABEL[p], games(ls.length) + ' · ' + g + ' G · ' + as + ' A · ' + (rs.length ? rt(rs.reduce(function (s, x) { return s + x.p.rating; }, 0) / rs.length) : '–')];
       });
@@ -1659,7 +1661,7 @@
         var list = days[k], x = tally(list), per = dict(), star = null;
         list.forEach(function (m) {
           m.players.us.forEach(function (p) {
-            if (!(p.rating > 0)) return;
+            if (!validRating(p.rating)) return;
             var e = per[p.id] || (per[p.id] = { id: p.id, name: p.name, s: 0, n: 0 });
             e.s += p.rating; e.n++;
           });
@@ -1747,7 +1749,7 @@
         if (m.result === 'W' && (!bigW || d > bigW.us.goals - bigW.them.goals)) bigW = m;
         if (m.result === 'L' && (!bigL || d < bigL.us.goals - bigL.them.goals)) bigL = m;
         if (!hi || m.us.goals + m.them.goals > hi.us.goals + hi.them.goals) hi = m;
-        m.players.us.forEach(function (p) { if (p.rating > 0 && (!perf || p.rating > perf.p.rating)) perf = { p: p, m: m }; });
+        m.players.us.forEach(function (p) { if (validRating(p.rating) && (!perf || p.rating > perf.p.rating)) perf = { p: p, m: m }; });
       });
       var ml = function (m) { return m ? '<a href="' + matchHref(m) + '" style="color:var(--accent)">' + m.us.goals + '–' + m.them.goals + ' v ' + esc(m.them.name) + '</a>' + (m.dnf ? ' (DNF)' : '') : '–'; };
       h += kvCard('Records', [['Biggest win', ml(bigW)], ['Heaviest defeat', ml(bigL)], ['Most goals in a game', ml(hi)],
